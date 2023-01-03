@@ -154,6 +154,10 @@ defm dynamic_list : Eq<"dynamic-list",
    "this additionally implies -Bsymbolic but does not set DF_SYMBOLIC">,
    MetaVarName<"<file>">;
 
+def sandbox: F<"sandbox">, HelpText<"The output will be run in the native sandbox">;
+
+def no_sandbox: F<"no-sandbox">, HelpText<"Do not add the support for the native sandbox">;
+
 def eb: F<"EB">, HelpText<"Select the big-endian format in OUTPUT_FORMAT">;
 def el: F<"EL">, HelpText<"Select the little-endian format in OUTPUT_FORMAT">;
 

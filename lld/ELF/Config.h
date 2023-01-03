@@ -397,6 +397,9 @@ struct Config {
   bool androidMemtagStack;
 
   unsigned threadCount;
+
+  // Prepare the output for the native sandbox. It will generate specific PLT entries, e.g.
+  bool sandbox;
 };
 struct ConfigWrapper {
   Config c;

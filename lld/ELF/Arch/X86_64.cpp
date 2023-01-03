@@ -407,6 +407,7 @@ void X86_64::writePlt(uint8_t *buf, const Symbol &sym,
   write32le(buf + 12, in.plt->getVA() - pltEntryAddr - 16);
 }
 
+
 RelType X86_64::getDynRel(RelType type) const {
   if (type == R_X86_64_64 || type == R_X86_64_PC64 || type == R_X86_64_SIZE32 ||
       type == R_X86_64_SIZE64)
@@ -1004,6 +1005,55 @@ void X86_64::relocateAlloc(InputSectionBase &sec, uint8_t *buf) const {
   }
 }
 
+namespace {
+class Sandbox_X86_64 : public X86_64 {
+public:
+  Sandbox_X86_64();
+  void writePltHeader(uint8_t *buf) const override;
+  void writePlt(uint8_t *buf, const Symbol &sym,
+                uint64_t pltEntryAddr) const override;
+};
+} // namespace
+
+Sandbox_X86_64::Sandbox_X86_64() {
+    pltEntrySize = 64;
+}
+
+void Sandbox_X86_64::writePltHeader(uint8_t *buf) const {
+  // PLT header should not be entered when using MUSL as it initializes got.plt 
+  // entries eagerily. The HLT instructions is inserted as an assertion of
+  // this fact.
+  const uint8_t pltData[] = {
+      0xf4, 0x90, 0x90, 0x90, 0x90, 0x90, // hlt, nop, ...
+      0x90, 0x90, 0x90, 0x90, 0x90, 0x90, // 
+      0x90, 0x90, 0x90, 0x90, //
+  };
+  memcpy(buf, pltData, sizeof(pltData));
+}
+
+void Sandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
+                      uint64_t pltEntryAddr) const {
+  const uint8_t inst[] = {
+      0x50,                                                       // push   %rax                        ; save rax
+      0x51,                                                       // push   %rcx                        ; save rcx
+      0x48, 0x8b, 0x05, 0, 0, 0, 0, 	                          // mov    *got(%rip),%rax             ; load the target address to rax
+      0x48, 0xb9, 0x10, 0x32, 0x54, 0x76, 0x89, 0xba, 0xdc, 0xfe, // movabs $0xfedcba9876543210,%rcx    ; the address masking start
+      0x48, 0x21, 0xc8,             	                          // and    %rcx,%rax
+      0x48, 0xb9, 0xef, 0xcd, 0xab, 0x89, 0x67, 0x45, 0x23, 0x01, // movabs $0x123456789abcdef,%rcx
+      0x48, 0x01, 0xc8,             	                          // add    %rcx,%rax                   ; the address masking end
+      0x50,                                                       // push   %rax                        ; push the sanitized address
+      0x48, 0x8b, 0x44, 0x24, 0x10,                               // mov    0x10(%rsp),%rax             ; restore rax
+      0x48, 0x8b, 0x4c, 0x24, 0x08,       	                  // mov    0x8(%rsp),%rcx              ; restore rcx
+      0xc2, 0x10, 0,             	                          // retq   $0x10                       ; jump to the target (a retpoline) and pop rax and rcx from the stack
+      0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+      0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+  };
+  fprintf(stderr, "LLD12: Writing PLT\n");
+  memcpy(buf, inst, sizeof(inst));
+
+  write32le(buf + 5, sym.getGotPltVA() - pltEntryAddr - 9);
+}
+
 // If Intel Indirect Branch Tracking is enabled, we have to emit special PLT
 // entries containing endbr64 instructions. A PLT entry will be split into two
 // parts, one in .plt.sec (writePlt), and the other in .plt (writeIBTPlt).
@@ -1189,6 +1239,11 @@ static TargetInfo *getTargetInfo() {
     static IntelIBT t;
     return &t;
   }
+
+  if (config->sandbox) {
+    static Sandbox_X86_64 t;
+    return &t;
+  } 
 
   static X86_64 t;
   return &t;

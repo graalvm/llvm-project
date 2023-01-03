@@ -48,7 +48,7 @@ namespace {
   		        errs() << *CB << ":" << *CB->getCalledOperand() << " function: 	" << CB->getCalledFunction() << '\n';
   		        
   	            // %P0 = ptrtoint i32 (i32)* %11 to i64
-				// %P1 = and i64 %P0, u0xFEDCBA9876543210
+				// %P1 = and i64 %P0, u0xFEDCBA8976543210
 				// %P2 = add i64 %P1, u0x0123456789ABCDEF
 				// %P3 = inttoptr i64 %P2 to i32 (i32)*
 				// %13 = call i32 %P3(i32 noundef %12)
@@ -56,7 +56,11 @@ namespace {
   		        IRBuilder<> Builder(CB);
   		        Value *P0 = Builder.CreatePtrToInt(CB->getCalledOperand(), Type::getInt64Ty(Builder.getContext()), "P0");
 			    errs() << "P0: " << *P0 << "\n";
-  		        Value *P1 = Builder.CreateAnd(P0, Constant::getIntegerValue(Type::getInt64Ty(Builder.getContext()), APInt(64, 0xFEDCBA9876543210)), "P1");
+                        /** Note: the original constant was 0xFEDCBA9876543210, not 0xFEDCBA8976543210, i.e. the reverse of other one. 
+                         * But it led to some unwanted optimizations when generating object files in certain situations, as it actually 
+                         * was the negative of the other one enabling so some compile-time arithmetics.
+                        */ 
+  		        Value *P1 = Builder.CreateAnd(P0, Constant::getIntegerValue(Type::getInt64Ty(Builder.getContext()), APInt(64, 0xFEDCBA8976543210)), "P1");
 			    errs() << "P1: " << *P1 << "\n";
   		        Value *P2 = Builder.CreateAdd(P1, Constant::getIntegerValue(Type::getInt64Ty(Builder.getContext()), APInt(64, 0x0123456789ABCDEF)), "P2");
 			    errs() << "P2: " << *P2 << "\n";
