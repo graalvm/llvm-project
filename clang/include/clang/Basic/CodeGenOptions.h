@@ -232,6 +232,8 @@ public:
     unsigned LinkFlags = 0;
   };
 
+  bool Sandbox;
+
   /// The files specified here are linked in to the module before optimizations.
   std::vector<BitcodeFileToLink> LinkBitcodeFiles;
 

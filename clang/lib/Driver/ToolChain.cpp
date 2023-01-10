@@ -651,7 +651,10 @@ std::string ToolChain::GetLinkerPath(bool *LinkerIsLLD) const {
   // considered as the linker flavor, e.g. "bfd", "gold", or "lld".
   const Arg* A = Args.getLastArg(options::OPT_fuse_ld_EQ);
   StringRef UseLinker = A ? A->getValue() : CLANG_DEFAULT_LINKER;
-
+  if ((UseLinker != "musl-clang") && Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false)) {
+    printf("Forcing LLD linker\n");
+    UseLinker = "lld";
+  }
   // --ld-path= takes precedence over -fuse-ld= and specifies the executable
   // name. -B, COMPILER_PATH and PATH and consulted if the value does not
   // contain a path component separator.

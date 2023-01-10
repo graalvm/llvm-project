@@ -155,7 +155,7 @@ defm dynamic_list : Eq<"dynamic-list",
    MetaVarName<"<file>">;
 
 def sandbox: F<"sandbox">, HelpText<"The output will be run in the native sandbox">;
-
+def sandbox_linker: F<"sandbox-linker">, Alias<sandbox>, HelpText<"Alias for --sandbox">;
 def no_sandbox: F<"no-sandbox">, HelpText<"Do not add the support for the native sandbox">;
 
 def eb: F<"EB">, HelpText<"Select the big-endian format in OUTPUT_FORMAT">;

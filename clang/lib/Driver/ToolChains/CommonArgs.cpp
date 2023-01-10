@@ -227,6 +227,11 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
                             const JobAction &JA) {
   const Driver &D = TC.getDriver();
 
+  bool sandbox = Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false);
+  if (sandbox) {
+    CmdArgs.push_back("--sandbox");
+  }
+
   // Add extra linker input arguments which are not treated as inputs
   // (constructed via -Xarch_).
   Args.AddAllArgValues(CmdArgs, options::OPT_Zlinker_input);

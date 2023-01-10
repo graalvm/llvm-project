@@ -4565,6 +4565,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-triple");
   CmdArgs.push_back(Args.MakeArgString(TripleStr));
 
+  bool sandbox = Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false);
+  if (sandbox) {
+    CmdArgs.push_back("-sandbox");
+  }
+  printf("Sandbox-1 active=%d\n", sandbox);
+
   if (const Arg *MJ = Args.getLastArg(options::OPT_MJ)) {
     DumpCompilationDatabase(C, MJ->getValue(), TripleStr, Output, Input, Args);
     Args.ClaimAllArgs(options::OPT_MJ);

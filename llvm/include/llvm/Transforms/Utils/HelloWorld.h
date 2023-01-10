@@ -16,6 +16,9 @@ namespace llvm {
 class HelloWorldPass : public PassInfoMixin<HelloWorldPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+
+  static bool isRequired() { return true; }
+
 };
 
 } // namespace llvm

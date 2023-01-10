@@ -5377,6 +5377,12 @@ def mrelocation_model : Separate<["-"], "mrelocation-model">,
 
 } // let Flags = [CC1Option, CC1AsOption, FC1Option, NoDriverOption]
 
+def Sandbox : Flag<["-"], "sandbox">,
+    Flags<[CC1Option]>,
+    MarshallingInfoFlag<CodeGenOpts<"Sandbox">>;
+def NoSandbox : Flag<["-"], "no-sandbox">,
+    Flags<[CC1Option]>;
+
 let Flags = [CC1Option, CC1AsOption, NoDriverOption] in {
 
 def debug_info_kind_EQ : Joined<["-"], "debug-info-kind=">;

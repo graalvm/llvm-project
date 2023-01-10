@@ -17,6 +17,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
+#include "llvm/IR/LegacyPassManager.h"
 
 using namespace llvm;
 
@@ -35,7 +37,7 @@ namespace {
       errs() << "MyHello: ";
       errs().write_escaped(F.getName()) << '\n';
       
-	  for (BasicBlock &B : F) {
+      for (BasicBlock &B : F) {
         for (Instruction &I: B) {
           if (auto *CB = dyn_cast<CallBase>(&I)) {
             // We know we've encountered some kind of call instruction (call,
@@ -81,6 +83,16 @@ namespace {
 
 char Hello::ID = 0;
 static RegisterPass<Hello> X("hello", "Hello World Pass");
+
+static void registerHelloPass(const PassManagerBuilder &,
+                                llvm::legacy::PassManagerBase &PM) {
+    PM.add(new Hello());
+    errs() << "Hello pass registered as a standard pass" << "\n";    
+}
+
+static RegisterStandardPasses
+    RegisterHelloPass(PassManagerBuilder::EP_OptimizerLast,
+                          registerHelloPass);
 
 namespace {
   // Hello2 - The second implementation with getAnalysisUsage implemented.

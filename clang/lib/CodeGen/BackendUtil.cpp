@@ -91,6 +91,7 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
+#include "llvm/Transforms/Utils/HelloWorld.h"
 #include <memory>
 #include <optional>
 using namespace clang;
@@ -764,7 +765,6 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
     BackendAction Action, std::unique_ptr<raw_pwrite_stream> &OS,
     std::unique_ptr<llvm::ToolOutputFile> &ThinLinkOS) {
   std::optional<PGOOptions> PGOOpt;
-
   if (CodeGenOpts.hasProfileIRInstr())
     // -fprofile-generate.
     PGOOpt = PGOOptions(CodeGenOpts.InstrProfileOutput.empty()
@@ -1003,6 +1003,13 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
   // the code-generation pipeline.
   if (!actionRequiresCodeGen(Action) && CodeGenOpts.VerifyModule)
     MPM.addPass(VerifierPass());
+
+  if (CodeGenOpts.Sandbox) {
+    printf("Sandbox codegen enabled\n");
+    MPM.addPass(createModuleToFunctionPassAdaptor(HelloWorldPass()));
+  } else {
+    printf("Sandbox codegen disabled\n");
+  }
 
   if (Action == Backend_EmitBC || Action == Backend_EmitLL) {
     if (CodeGenOpts.PrepareForThinLTO && !CodeGenOpts.DisableLLVMPasses) {
