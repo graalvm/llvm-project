@@ -1222,6 +1222,7 @@ public:
 
 InputSection *createInterpSection();
 MergeInputSection *createCommentSection();
+MergeInputSection *createSandboxSection();
 template <class ELFT> void splitSections();
 void combineEhSections();
 

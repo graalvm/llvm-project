@@ -90,6 +90,21 @@ MergeInputSection *elf::createCommentSection() {
   return sec;
 }
 
+static ArrayRef<uint8_t> getSandboxInfo() {
+  StringRef s = saver().save(Twine("Native Sandbox: 0.0.1.Beta"));
+  // +1 to include the terminating '\0'.
+  return {(const uint8_t *)s.data(), s.size() + 1};
+}
+
+
+MergeInputSection *elf::createSandboxSection() {
+  auto *sec = make<MergeInputSection>(SHF_MERGE | SHF_STRINGS, SHT_PROGBITS, 1,
+                                      getSandboxInfo(), ".sandbox");
+  sec->splitIntoPieces();
+  return sec;
+}
+
+
 // .MIPS.abiflags section.
 template <class ELFT>
 MipsAbiFlagsSection<ELFT>::MipsAbiFlagsSection(Elf_Mips_ABIFlags flags)
