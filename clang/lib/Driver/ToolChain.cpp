@@ -651,7 +651,7 @@ std::string ToolChain::GetLinkerPath(bool *LinkerIsLLD) const {
   // considered as the linker flavor, e.g. "bfd", "gold", or "lld".
   const Arg* A = Args.getLastArg(options::OPT_fuse_ld_EQ);
   StringRef UseLinker = A ? A->getValue() : CLANG_DEFAULT_LINKER;
-  if ((UseLinker != "musl-clang") && Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false)) {
+  if ((UseLinker != "musl-clang") && (UseLinker != "musl-clang++") && Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false)) {
     printf("Forcing LLD linker\n");
     UseLinker = "lld";
   }

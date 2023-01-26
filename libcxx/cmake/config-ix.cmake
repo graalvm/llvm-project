@@ -129,5 +129,9 @@ else()
   check_library_exists(m ccos "" LIBCXX_HAS_M_LIB)
   check_library_exists(rt clock_gettime "" LIBCXX_HAS_RT_LIB)
   set(LIBCXX_HAS_SYSTEM_LIB NO)
-  check_library_exists(atomic __atomic_fetch_add_8 "" LIBCXX_HAS_ATOMIC_LIB)
+  # Always use the atomic shared library built accordingly to the target sandbox
+  # realm, i.e. either trusted ot untrusted. See libcxx/CMakeLists.txt where
+  # the atomic lib linking is specified.
+  set(LIBCXX_HAS_ATOMIC_LIB YES)
+  #check_library_exists(atomic __atomic_fetch_add_8 "" LIBCXX_HAS_ATOMIC_LIB)
 endif()
