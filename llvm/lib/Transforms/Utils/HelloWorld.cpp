@@ -21,13 +21,64 @@ using namespace llvm;
 static cl::opt<bool> SayHello("say-hello", cl::init(false),
                           cl::desc("Should I say hello?"));
 
+PreservedAnalyses HelloWorldPass::run(Module &M,
+                                      ModuleAnalysisManager &AM) {
+    errs() << "MyHello module: ";
+    errs().write_escaped(M.getName()) << '\n';
+
+    IRBuilder<> Builder(M.getContext());
+
+    Type* Int8Type = IntegerType::getInt8Ty(M.getContext());
+    Type* VoidPtrType = PointerType::getUnqual(Int8Type);
+    M.getOrInsertGlobal("poll_page", VoidPtrType);
+    GlobalVariable *poll_page_global = M.getNamedGlobal("poll_page");
+    poll_page_global->setLinkage(GlobalValue::ExternalLinkage);
+    poll_page_global->setThreadLocalMode(GlobalValue::GeneralDynamicTLSModel);
+    poll_page_global->setAlignment(Align(8));
+
+    //; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
+    //declare nonnull ptr @llvm.threadlocal.address.p0(ptr nonnull) #2
+    FunctionCallee tl_addr_intr = M.getOrInsertFunction("llvm.threadlocal.address.p0", VoidPtrType, VoidPtrType);
+    FunctionCallee sandbox_poll_intr = M.getOrInsertFunction("llvm.sandboxpoll", Type::getVoidTy(M.getContext()), Type::getInt8Ty(M.getContext()));
+
+    return PreservedAnalyses::all();
+} 
+
+static LoadInst * loadPollPageAddr(Function &F, IRBuilder<> &poll_builder) {
+        Module *M = F.getParent();
+        GlobalVariable *poll_page_global = M->getNamedGlobal("poll_page");
+// %1 = call ptr @llvm.threadlocal.address.p0(ptr @tl)
+        Function *tl_addr_intr = M->getFunction("llvm.threadlocal.address.p0");
+        CallInst *poll_page_tl = poll_builder.CreateCall(tl_addr_intr, poll_page_global);
+//%2 = load ptr, ptr %1, align 8
+        Type *int8Ty = Type::getInt8Ty(F.getContext());
+        LoadInst *poll_page_addr = poll_builder.CreateLoad(int8Ty->getPointerTo(), poll_page_tl);
+        return poll_page_addr;
+}
+
+
+static void insertSandboxPoll(Function &F, IRBuilder<> &poll_builder, LoadInst *poll_page_content) {
+        Module *M = F.getParent();
+        Function *sandbox_poll_intr = M->getFunction("llvm.sandboxpoll");
+        poll_builder.CreateCall(sandbox_poll_intr, poll_page_content);
+}
 
 PreservedAnalyses HelloWorldPass::run(Function &F,
                                       FunctionAnalysisManager &AM) {
-      errs() << "MyHello: ";
+      errs() << "MyHello function: ";
       errs().write_escaped(F.getName()) << '\n';
-      
+
+      LoadInst *poll_page_addr = NULL;
+      int brCnt = 0;
+
       for (BasicBlock &B : F) {
+
+        if (!poll_page_addr) {
+           IRBuilder<> poll_builder(&B);
+           poll_builder.SetInsertPoint(&B, B.begin());
+           poll_page_addr = loadPollPageAddr(F, poll_builder);
+        } 
+
         for (Instruction &I: B) {
           if (auto *CB = dyn_cast<CallBase>(&I)) {
             // We know we've encountered some kind of call instruction (call,
@@ -62,6 +113,15 @@ PreservedAnalyses HelloWorldPass::run(Function &F,
 			    errs() << "Modif. call: " << *CB << "\n";
 
             }
+          }
+          
+          if (auto *BR = dyn_cast<BranchInst>(&I)) {
+              //if (!brCnt) {
+                 IRBuilder<> Builder(BR);
+                 LoadInst *poll_page_content = Builder.CreateLoad(Type::getInt8Ty(F.getContext()), poll_page_addr);
+                 insertSandboxPoll(F, Builder, poll_page_content);
+              //}
+              errs() << "Branch: " << brCnt++ << *BR << "\n";
           }
         }
       }

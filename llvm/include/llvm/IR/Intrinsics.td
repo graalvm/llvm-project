@@ -151,7 +151,7 @@ def IntrNoDuplicate : IntrinsicProperty;
 def IntrNoMerge : IntrinsicProperty;
 
 // IntrConvergent - Calls to this intrinsic are convergent and may not be made
-// control-dependent on any additional values.
+// control-deendent on any additional values.
 // Parallels the convergent attribute on LLVM IR functions.
 def IntrConvergent : IntrinsicProperty;
 
@@ -661,6 +661,13 @@ def int_memset  : Intrinsic<[],
                              IntrNoFree, IntrNoCallback,
                              NoCapture<ArgIndex<0>>, WriteOnly<ArgIndex<0>>,
                              ImmArg<ArgIndex<3>>]>;
+
+def int_sandboxpoll  : Intrinsic<[],
+                            [llvm_i8_ty],
+                            [IntrWillReturn, IntrNoCallback]>;
+                           // [llvm_anyptr_ty],
+                           // [IntrArgMemOnly, IntrWillReturn, IntrNoFree, IntrNoCallback, NoCapture<ArgIndex<0>>]>;
+
 
 // Memset version that is guaranteed to be inlined.
 // In particular this means that the generated code is not allowed to call any

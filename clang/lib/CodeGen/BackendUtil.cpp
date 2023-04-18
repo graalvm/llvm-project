@@ -1006,6 +1006,7 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
 
   if (CodeGenOpts.Sandbox) {
     printf("Sandbox codegen enabled\n");
+    MPM.addPass(HelloWorldPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(HelloWorldPass()));
   } else {
     printf("Sandbox codegen disabled\n");
