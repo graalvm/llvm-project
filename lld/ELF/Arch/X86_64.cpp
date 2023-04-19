@@ -1016,7 +1016,7 @@ public:
 } // namespace
 
 Sandbox_X86_64::Sandbox_X86_64() {
-    pltEntrySize = 64;
+    pltEntrySize = 0x20;
 }
 
 void Sandbox_X86_64::writePltHeader(uint8_t *buf) const {
@@ -1034,24 +1034,21 @@ void Sandbox_X86_64::writePltHeader(uint8_t *buf) const {
 void Sandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
                       uint64_t pltEntryAddr) const {
   const uint8_t inst[] = {
-      0x50,                                                       // push   %rax                        ; save rax
-      0x51,                                                       // push   %rcx                        ; save rcx
-      0x48, 0x8b, 0x05, 0, 0, 0, 0, 	                          // mov    *got(%rip),%rax             ; load the target address to rax
-      0x48, 0xb9, 0x10, 0x32, 0x54, 0x76, 0x89, 0xba, 0xdc, 0xfe, // movabs $0xfedcba9876543210,%rcx    ; the address masking start
-      0x48, 0x21, 0xc8,             	                          // and    %rcx,%rax
-      0x48, 0xb9, 0xef, 0xcd, 0xab, 0x89, 0x67, 0x45, 0x23, 0x01, // movabs $0x123456789abcdef,%rcx
-      0x48, 0x01, 0xc8,             	                          // add    %rcx,%rax                   ; the address masking end
-      0x50,                                                       // push   %rax                        ; push the sanitized address
-      0x48, 0x8b, 0x44, 0x24, 0x10,                               // mov    0x10(%rsp),%rax             ; restore rax
-      0x48, 0x8b, 0x4c, 0x24, 0x08,       	                  // mov    0x8(%rsp),%rcx              ; restore rcx
-      0xc2, 0x10, 0,             	                          // retq   $0x10                       ; jump to the target (a retpoline) and pop rax and rcx from the stack
-      0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
-      0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+      0xf3, 0x0f, 0x1e, 0xfa,          	                // endbr64 
+      0x4c, 0x8b, 0x1d, 0x00, 0x00, 0x00, 0x00, 	// mov    0x0(%rip),%r11
+      0x51,                   	                        // push   %rcx
+      0x41, 0x8b, 0x0b,             	                // mov    (%r11),%ecx
+      0x81, 0xf9, 0xf3, 0x0f, 0x1e, 0xfa,    	        // cmp    $0xfa1e0ff3,%ecx
+      0x75, 0x04,                	                // jne    1b <trap>
+      0x59,                   	                        // pop    %rcx
+      0x41, 0xff, 0xe3,             	                // jmpq   *%r11
+      0xcc,                   	                        // int3   
+      0x66, 0x0f, 0x1f, 0x00,          	                // nopw   (%rax)
   };
   fprintf(stderr, "LLD12: Writing PLT\n");
   memcpy(buf, inst, sizeof(inst));
 
-  write32le(buf + 5, sym.getGotPltVA() - pltEntryAddr - 9);
+  write32le(buf + 7, sym.getGotPltVA() - pltEntryAddr - 11);
 }
 
 // If Intel Indirect Branch Tracking is enabled, we have to emit special PLT
@@ -1226,26 +1223,32 @@ void RetpolineZNow::writePlt(uint8_t *buf, const Symbol &sym,
 }
 
 static TargetInfo *getTargetInfo() {
+  fprintf(stderr, "LLD12: getTargetInfo: ");
   if (config->zRetpolineplt) {
     if (config->zNow) {
       static RetpolineZNow t;
+      fprintf(stderr, "RetpolineZNow\n");
       return &t;
     }
     static Retpoline t;
-    return &t;
-  }
-
-  if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) {
-    static IntelIBT t;
+    fprintf(stderr, "Retpoline\n");
     return &t;
   }
 
   if (config->sandbox) {
     static Sandbox_X86_64 t;
+    fprintf(stderr, "Sandbox_X86_64\n");
     return &t;
-  } 
+  }
+
+  if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) {
+    static IntelIBT t;
+    fprintf(stderr, "IntelIBT\n");
+    return &t;
+  }
 
   static X86_64 t;
+  fprintf(stderr, "X86_64\n");
   return &t;
 }
 

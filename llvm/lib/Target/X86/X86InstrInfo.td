@@ -1322,7 +1322,12 @@ def LEAVE64  : I<0xC9, RawFrm, (outs), (ins), "leave", []>,
 let hasSideEffects = 1, usesCustomInserter = 0,
     hasNoSchedulingInfo = 1 in
   def X86_sandboxpoll
-    : PseudoI<(outs), (ins GR8:$src), [(int_sandboxpoll GR8:$src)]>;
+    : PseudoI<(outs), (ins GR32:$src), [(int_sandboxpoll GR32:$src)]>;
+
+let hasSideEffects = 1, usesCustomInserter = 0,
+    hasNoSchedulingInfo = 1 in
+  def X86_sandboxcfi
+    : PseudoI<(outs), (ins GR32:$src), [(int_sandboxcfi GR32:$src)]>;
 
 let isBarrier = 1, hasSideEffects = 1, usesCustomInserter = 1,
     SchedRW = [WriteSystem] in

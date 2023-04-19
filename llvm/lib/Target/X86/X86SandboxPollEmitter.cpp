@@ -25,51 +25,83 @@ using namespace llvm;
 
 namespace {
 
-class X86SandboxPollEmitterPass : public MachineFunctionPass {
-public:
-  X86SandboxPollEmitterPass() : MachineFunctionPass(ID) {}
-  StringRef getPassName() const override {
-    return "X86 Sandbox Poll Instructions Emitter";
-  }
-  bool runOnMachineFunction(MachineFunction &MF) override;
+    class X86SandboxPollEmitterPass : public MachineFunctionPass {
+        public:
+            X86SandboxPollEmitterPass() : MachineFunctionPass(ID) {}
+            StringRef getPassName() const override {
+                return "X86 Sandbox Poll Instructions Emitter";
+            }
+            bool runOnMachineFunction(MachineFunction &MF) override;
 
-  static char ID;
-};
+            static char ID;
+    };
 
 } // end anonymous namespace
 
 char X86SandboxPollEmitterPass::ID = 0;
 
 bool X86SandboxPollEmitterPass::runOnMachineFunction(
-    MachineFunction &MF) {
-  LLVM_DEBUG(dbgs() << "***** " << getPassName() << " : " << MF.getName()
-                    << " *****\n");
-  const X86Subtarget *Subtarget = &MF.getSubtarget<X86Subtarget>();
-  //const X86RegisterInfo *TRI = Subtarget->getRegisterInfo();
-  const X86InstrInfo *TII = Subtarget->getInstrInfo();
-  const X86RegisterInfo &RI = TII->getRegisterInfo();
+        MachineFunction &MF) {
+    LLVM_DEBUG(dbgs() << "***** " << getPassName() << " : " << MF.getName()
+            << " *****\n");
+    const X86Subtarget *Subtarget = &MF.getSubtarget<X86Subtarget>();
+    //const X86RegisterInfo *TRI = Subtarget->getRegisterInfo();
+    const X86InstrInfo *TII = Subtarget->getInstrInfo();
+    const X86RegisterInfo &RI = TII->getRegisterInfo();
 
-  bool Modified = false;
-  for (auto &MBB : MF) {
-    for (auto MBBI = MBB.begin(); MBBI != MBB.end(); ++MBBI) {
-      if (MBBI->getOpcode() != X86::X86_sandboxpoll)
-        continue;
-      
-      MachineInstr &MI = *MBBI;
-      DILocation *DL = MI.getDebugLoc();
-      BuildMI(MBB, MI, DL, TII->get(X86::NOOP)).addRegMask(RI.getNoPreservedMask());
+    bool Modified = false;
+    for (auto &MBB : MF) {
+        for (auto MBBI = MBB.begin(); MBBI != MBB.end(); ++MBBI) {
+            if (MBBI->getOpcode() != X86::X86_sandboxpoll && MBBI->getOpcode() != X86::X86_sandboxcfi)
+                continue;
 
-      Modified = true;
-      break;
+            MachineInstr &MI = *MBBI;
+            DILocation *DL = MI.getDebugLoc();
+
+            switch (MBBI->getOpcode()) {
+                case X86::X86_sandboxcfi: {
+                    printf("X86SandboxPollEmitter: X86_sandboxcfi\n");
+                    MachineBasicBlock *trapMBB = MF.CreateMachineBasicBlock();
+                    trapMBB->setIsEHPad(true); // prevents from getting "Undefined temporary symbol .LBB" 
+                                               // error when compiling  no-return functions
+                    //BuildMI(trapMBB, DL, TII->get(X86::NOOP)).addRegMask(RI.getNoPreservedMask());
+                    BuildMI(trapMBB, DL, TII->get(X86::INT3));
+                    MBB.addSuccessor(trapMBB);
+                    MF.push_back(trapMBB);
+
+                    Register TargetReg = MI.getOperand(0).getReg(); 
+                    BuildMI(MBB, MI, DL, TII->get(X86::CMP32ri))
+                        .addReg(TargetReg)
+                        .addImm(0xfa1e0ff3); // ENDBR64
+                    BuildMI(MBB, MI, DL, TII->get(X86::JCC_1)).addMBB(trapMBB).addImm(X86::COND_NE);
+
+                                              //Register TargetReg = MI.getOperand(0).getReg();
+                                              //auto CheckI = BuildMI(MBB, MI, DL, TII->get(X86::CMP32ri))
+                                              //    .addReg(TargetReg, RegState::Kill)
+                                              //    .addImm(0x12345678);
+                                              //BuildMI(MBB, MI, DL, TII->get(X86::JCC_1)).addImm(16).addImm(X86::COND_E);
+                                              //BuildMI(MBB, MI, DL, TII->get(X86::INT3));
+
+                    Modified = true;
+                    break;
+                }
+                case X86::X86_sandboxpoll: {
+                    BuildMI(MBB, MI, DL, TII->get(X86::NOOP)).addRegMask(RI.getNoPreservedMask());
+                    Modified = true;
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
     }
-  }
 
-  return Modified;
+    return Modified;
 }
 
 INITIALIZE_PASS(X86SandboxPollEmitterPass, PASS_KEY,
-                "X86 Sandbox Poll Instructions Emitter", false, false)
+        "X86 Sandbox Poll Instructions Emitter", false, false)
 
 FunctionPass *llvm::createX86SandboxPollEmitterPass() {
-  return new X86SandboxPollEmitterPass();
+    return new X86SandboxPollEmitterPass();
 }

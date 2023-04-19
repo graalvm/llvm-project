@@ -663,7 +663,13 @@ def int_memset  : Intrinsic<[],
                              ImmArg<ArgIndex<3>>]>;
 
 def int_sandboxpoll  : Intrinsic<[],
-                            [llvm_i8_ty],
+                            [llvm_i32_ty],
+                            [IntrWillReturn, IntrNoCallback]>;
+                           // [llvm_anyptr_ty],
+                           // [IntrArgMemOnly, IntrWillReturn, IntrNoFree, IntrNoCallback, NoCapture<ArgIndex<0>>]>;
+
+def int_sandboxcfi  : Intrinsic<[],
+                            [llvm_i32_ty],
                             [IntrWillReturn, IntrNoCallback]>;
                            // [llvm_anyptr_ty],
                            // [IntrArgMemOnly, IntrWillReturn, IntrNoFree, IntrNoCallback, NoCapture<ArgIndex<0>>]>;
