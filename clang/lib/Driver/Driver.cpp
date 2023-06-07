@@ -695,6 +695,9 @@ static llvm::Triple computeTargetTriple(const Driver &D,
 // option occurs last.
 static driver::LTOKind parseLTOMode(Driver &D, const llvm::opt::ArgList &Args,
                                     OptSpecifier OptEq, OptSpecifier OptNeg) {
+  bool sandbox = Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false);
+  if (sandbox) return LTOK_Full;
+
   if (!Args.hasFlag(OptEq, OptNeg, false))
     return LTOK_None;
 
