@@ -52,13 +52,20 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
     bool Modified = false;
     for (auto &MBB : MF) {
         for (auto MBBI = MBB.begin(); MBBI != MBB.end(); ++MBBI) {
-            if (MBBI->getOpcode() != X86::X86_sandboxpoll && MBBI->getOpcode() != X86::X86_sandboxcfi)
-                continue;
-
             MachineInstr &MI = *MBBI;
             DILocation *DL = MI.getDebugLoc();
 
-            switch (MBBI->getOpcode()) {
+            if (MI.getDesc().isCall()) {
+                printf("X86SandboxPollEmitter: X86::CALL64r\n");
+                auto EI = MachineBasicBlock::iterator(MBBI);
+                EI++;
+                BuildMI(MBB, EI, DL, TII->get(X86::ENDBR64));
+            }
+
+            if (MI.getOpcode() != X86::X86_sandboxpoll && MI.getOpcode() != X86::X86_sandboxcfi)
+                continue;
+
+            switch (MI.getOpcode()) {
                 case X86::X86_sandboxcfi: {
                     printf("X86SandboxPollEmitter: X86_sandboxcfi\n");
                     MachineBasicBlock *trapMBB = MF.CreateMachineBasicBlock();
