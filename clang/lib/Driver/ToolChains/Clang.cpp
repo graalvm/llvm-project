@@ -4569,7 +4569,6 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   if (sandbox) {
     CmdArgs.push_back("-sandbox");
   }
-  printf("Sandbox-1 active=%d\n", sandbox);
 
   if (const Arg *MJ = Args.getLastArg(options::OPT_MJ)) {
     DumpCompilationDatabase(C, MJ->getValue(), TripleStr, Output, Input, Args);

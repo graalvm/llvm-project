@@ -23,6 +23,10 @@ using namespace llvm;
 #define PASS_KEY "x86-sandbox-poll-emitter"
 #define DEBUG_TYPE PASS_KEY
 
+static cl::opt<bool> EmitEndbrAfterCalls("x86-emit-endbr-after-calls",
+                               cl::desc("Emit ENDBR64 after call instructions."),
+                               cl::init(true));
+
 namespace {
 
     class X86SandboxPollEmitterPass : public MachineFunctionPass {
@@ -55,7 +59,7 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
             MachineInstr &MI = *MBBI;
             DILocation *DL = MI.getDebugLoc();
 
-            if (MI.getDesc().isCall()) {
+            if (EmitEndbrAfterCalls && MI.getDesc().isCall()) {
                 printf("X86SandboxPollEmitter: X86::CALL64r\n");
                 auto EI = MachineBasicBlock::iterator(MBBI);
                 EI++;
