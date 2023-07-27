@@ -1,3 +1,9 @@
+# GraalOS fork of the LLVM repository
+
+This repository is a fork of https://github.com/llvm/llvm-project.
+
+It contains changes related to native sandboxing.
+
 # The LLVM Compiler Infrastructure
 
 This directory and its sub-directories contain the source code for LLVM,
