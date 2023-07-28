@@ -1,3 +1,4 @@
+/*
 //===- Hello.cpp - Example code from "Writing an LLVM Pass" ---------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -58,10 +59,6 @@ namespace {
   		        IRBuilder<> Builder(CB);
   		        Value *P0 = Builder.CreatePtrToInt(CB->getCalledOperand(), Type::getInt64Ty(Builder.getContext()), "P0");
 			    errs() << "P0: " << *P0 << "\n";
-                        /** Note: the original constant was 0xFEDCBA9876543210, not 0xFEDCBA8976543210, i.e. the reverse of other one. 
-                         * But it led to some unwanted optimizations when generating object files in certain situations, as it actually 
-                         * was the negative of the other one enabling so some compile-time arithmetics.
-                        */ 
   		        Value *P1 = Builder.CreateAnd(P0, Constant::getIntegerValue(Type::getInt64Ty(Builder.getContext()), APInt(64, 0xFEDCBA8976543210)), "P1");
 			    errs() << "P1: " << *P1 << "\n";
   		        Value *P2 = Builder.CreateAdd(P1, Constant::getIntegerValue(Type::getInt64Ty(Builder.getContext()), APInt(64, 0x0123456789ABCDEF)), "P2");
@@ -117,4 +114,4 @@ namespace {
 char Hello2::ID = 0;
 static RegisterPass<Hello2>
 Y("hello2", "Hello World Pass (with getAnalysisUsage implemented)");
-
+*/

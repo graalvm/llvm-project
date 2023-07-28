@@ -2794,7 +2794,7 @@ void LinkerDriver::link(opt::InputArgList &args) {
     ctx.inputSections.push_back(createCommentSection());
 
   if (config->sandbox)
-    inputSections.push_back(createSandboxSection());
+    ctx.inputSections.push_back(createSandboxSection());
 
   // Split SHF_MERGE and .eh_frame sections into pieces in preparation for garbage collection.
   invokeELFT(splitSections);
