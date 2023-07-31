@@ -1,12 +1,8 @@
-//===-- HelloWorld.cpp - Example Transformations --------------------------===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//===-- NativeSandbox.cpp -------------------------------------------------===//
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Utils/HelloWorld.h"
+#include "llvm/Transforms/Utils/NativeSandbox.h"
 #include "llvm/Support/CommandLine.h"
 
 #include "llvm/ADT/Statistic.h"
@@ -17,9 +13,6 @@
 
 
 using namespace llvm;
-
-static cl::opt<bool> SayHello("say-hello", cl::init(false),
-        cl::desc("Should I say hello?"));
 
 static bool isIgnoredForPolling(Module &M) {
     return M.getName().equals("ldso/dynlink.c") || 
@@ -32,14 +25,14 @@ static bool isIgnoredForPolling(Function &F) {
     //        F.getName().equals("finish_init_bootstrap_libc");
 }
 
-PreservedAnalyses HelloWorldPass::run(Module &M,
+PreservedAnalyses NativeSandboxPass::run(Module &M,
         ModuleAnalysisManager &AM) {
 
     FunctionCallee sandbox_poll_instr = M.getOrInsertFunction("llvm.sandboxpoll", Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
     FunctionCallee sandbox_cfi_instr = M.getOrInsertFunction("llvm.sandboxcfi", Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
     
     if (!isIgnoredForPolling(M)) {
-        errs() << "MyHello module: ";
+        errs() << "NativeSandbox LLVM pass processing module: ";
         errs().write_escaped(M.getName()) << '\n';
 
         IRBuilder<> Builder(M.getContext());
@@ -56,7 +49,7 @@ PreservedAnalyses HelloWorldPass::run(Module &M,
         //declare nonnull ptr @llvm.threadlocal.address.p0(ptr nonnull) #2
         FunctionCallee tl_addr_instr = M.getOrInsertFunction("llvm.threadlocal.address.p0", VoidPtrType, VoidPtrType);
    } else {
-        errs() << "Ignored MyHello module: ";
+        errs() << "NativeSandbox LLVM pass ignoring module: ";
         errs().write_escaped(M.getName()) << '\n';
     }
 
@@ -87,6 +80,7 @@ static void insertSandboxCFI(Function &F, IRBuilder<> &Builder, LoadInst *endbr_
     Builder.CreateCall(sandbox_cfi_instr, endbr_content);
 }
 
+/*
 static LoadInst *insertENDBR64Comparison(Function &F, IRBuilder<> &Builder, LoadInst *endbr_content) {
     Module *M = F.getParent();
     Type *int32Ty = Type::getInt32Ty(Builder.getContext());
@@ -107,10 +101,11 @@ static LoadInst *insertENDBR64Comparison(Function &F, IRBuilder<> &Builder, Load
     LoadInst *c_load = Builder.CreateLoad(int32Ty, gep, "P4");
     return c_load;
 }
+*/
 
-PreservedAnalyses HelloWorldPass::run(Function &F,
+PreservedAnalyses NativeSandboxPass::run(Function &F,
         FunctionAnalysisManager &AM) {
-    errs() << "MyHello function: ";
+    errs() << "NativeSandbox LLVM pass processing function: ";
     errs().write_escaped(F.getName()) << '\n';
 
     LoadInst *poll_page_addr = NULL;

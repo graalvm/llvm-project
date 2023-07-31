@@ -91,7 +91,7 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/Transforms/Utils/NameAnonGlobals.h"
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
-#include "llvm/Transforms/Utils/HelloWorld.h"
+#include "llvm/Transforms/Utils/NativeSandbox.h"
 #include <memory>
 #include <optional>
 using namespace clang;
@@ -1006,8 +1006,8 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
 
   if (CodeGenOpts.Sandbox) {
     printf("Sandbox codegen enabled\n");
-    MPM.addPass(HelloWorldPass());
-    MPM.addPass(createModuleToFunctionPassAdaptor(HelloWorldPass()));
+    MPM.addPass(NativeSandboxPass());
+    MPM.addPass(createModuleToFunctionPassAdaptor(NativeSandboxPass()));
   } else {
     printf("Sandbox codegen disabled\n");
   }
