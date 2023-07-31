@@ -52,6 +52,7 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
     //const X86RegisterInfo *TRI = Subtarget->getRegisterInfo();
     const X86InstrInfo *TII = Subtarget->getInstrInfo();
     const X86RegisterInfo &RI = TII->getRegisterInfo();
+    MachineBasicBlock *trapMBB = NULL;
 
     bool Modified = false;
     for (auto &MBB : MF) {
@@ -71,19 +72,26 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
 
             switch (MI.getOpcode()) {
                 case X86::X86_sandboxcfi: {
-                    printf("X86SandboxPollEmitter: X86_sandboxcfi\n");
-                    MachineBasicBlock *trapMBB = MF.CreateMachineBasicBlock();
-                    trapMBB->setIsEHPad(true); // prevents from getting "Undefined temporary symbol .LBB" 
+                    printf("X86SandboxPollEmitter: X86_sandboxcfi ON\n");
+                    
+                    if (!trapMBB) {
+                        trapMBB = MF.CreateMachineBasicBlock();
+                        trapMBB->setIsEHPad(true); // prevents from getting "Undefined temporary symbol .LBB" 
                                                // error when compiling  no-return functions
-                    //BuildMI(trapMBB, DL, TII->get(X86::NOOP)).addRegMask(RI.getNoPreservedMask());
-                    BuildMI(trapMBB, DL, TII->get(X86::INT3));
+                        //BuildMI(trapMBB, DL, TII->get(X86::NOOP)).addRegMask(RI.getNoPreservedMask());
+                        BuildMI(trapMBB, DL, TII->get(X86::INT3));
+                        MF.push_back(trapMBB);
+                    }
+
                     MBB.addSuccessor(trapMBB);
-                    MF.push_back(trapMBB);
+                    //MF.push_back(trapMBB);
 
                     Register TargetReg = MI.getOperand(0).getReg(); 
                     BuildMI(MBB, MI, DL, TII->get(X86::CMP32ri))
                         .addReg(TargetReg)
                         .addImm(0xfa1e0ff3); // ENDBR64
+                    // X86::LFENCE
+                    BuildMI(MBB, MI, DL, TII->get(X86::LFENCE));
                     BuildMI(MBB, MI, DL, TII->get(X86::JCC_1)).addMBB(trapMBB).addImm(X86::COND_NE);
 
                                               //Register TargetReg = MI.getOperand(0).getReg();

@@ -1039,11 +1039,12 @@ void Sandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
       0x51,                   	                        // push   %rcx
       0x41, 0x8b, 0x0b,             	                // mov    (%r11),%ecx
       0x81, 0xf9, 0xf3, 0x0f, 0x1e, 0xfa,    	        // cmp    $0xfa1e0ff3,%ecx
+      0x0f, 0xae, 0xe8,                                 // lfence
       0x75, 0x04,                	                // jne    1b <trap>
       0x59,                   	                        // pop    %rcx
       0x41, 0xff, 0xe3,             	                // jmpq   *%r11
       0xcc,                   	                        // int3   
-      0x66, 0x0f, 0x1f, 0x00,          	                // nopw   (%rax)
+      0x90,                                             // nop
   };
   fprintf(stderr, "LLD12: Writing PLT\n");
   memcpy(buf, inst, sizeof(inst));
