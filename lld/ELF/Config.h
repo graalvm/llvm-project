@@ -398,8 +398,14 @@ struct Config {
 
   unsigned threadCount;
 
+  enum SandboxModeEnum {
+    OFF,
+    SWCFI,
+    HWCFI,
+  };
+
   // Prepare the output for the native sandbox. It will generate specific PLT entries, e.g.
-  bool sandbox;
+  SandboxModeEnum SandboxMode;
 };
 struct ConfigWrapper {
   Config c;

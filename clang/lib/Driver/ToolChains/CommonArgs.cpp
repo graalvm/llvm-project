@@ -227,11 +227,15 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
                             const JobAction &JA) {
   const Driver &D = TC.getDriver();
 
-  bool sandbox = Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false);
-  if (sandbox) {
-    CmdArgs.push_back("--sandbox");
-    CmdArgs.push_back("--mllvm=-lto-embed-bitcode=optimized");
-    CmdArgs.push_back("--lto-O0");
+  for (const Arg *A : Args.filtered(options::OPT_Sandbox_EQ)) {
+    StringRef mode = A->getValue();
+    if (mode != "off") {
+        CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + A->getValue()));
+        printf("AddLinkerInputs: %s\n", A->getValue());
+        CmdArgs.push_back("--mllvm=-lto-embed-bitcode=optimized");
+        CmdArgs.push_back("--lto-O0");
+        A->claim();
+    }
   }
 
   // Add extra linker input arguments which are not treated as inputs

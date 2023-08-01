@@ -1236,9 +1236,9 @@ static TargetInfo *getTargetInfo() {
     return &t;
   }
 
-  if (config->sandbox) {
+  if (config->SandboxMode) {
     static Sandbox_X86_64 t;
-    fprintf(stderr, "Sandbox_X86_64\n");
+    fprintf(stderr, "Sandbox_X86_64 (mode=%d)\n", config->SandboxMode);
     return &t;
   }
 

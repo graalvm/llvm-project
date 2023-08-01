@@ -5377,9 +5377,14 @@ def mrelocation_model : Separate<["-"], "mrelocation-model">,
 
 } // let Flags = [CC1Option, CC1AsOption, FC1Option, NoDriverOption]
 
+def Sandbox_EQ : Joined<["-"], "sandbox=">,
+	Flags<[CC1Option]>,
+	Values<"off,swcfi,hwcfi">,
+	NormalizedValuesScope<"CodeGenOptions::SandboxModeEnum">,
+	NormalizedValues<["OFF", "SWCFI", "HWCFI"]>,
+	MarshallingInfoEnum<CodeGenOpts<"SandboxMode">, "SWCFI">;
 def Sandbox : Flag<["-"], "sandbox">,
-    Flags<[CC1Option]>,
-    MarshallingInfoFlag<CodeGenOpts<"Sandbox">>;
+    Flags<[CC1Option]>, Alias<Sandbox_EQ>, AliasArgs<["swcfi"]>;
 def NoSandbox : Flag<["-"], "no-sandbox">,
     Flags<[CC1Option]>;
 

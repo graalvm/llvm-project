@@ -1078,9 +1078,19 @@ static void readConfigs(opt::InputArgList &args) {
     else if (arg->getOption().matches(OPT_Bsymbolic))
       config->bsymbolic = BsymbolicKind::All;
   }
-  config->sandbox =
-      args.hasFlag(OPT_sandbox, OPT_no_sandbox, false);
-  config->checkSections =
+  //config->sandbox =
+  //    args.hasFlag(OPT_sandbox, OPT_no_sandbox, false);
+  for (const opt::Arg *A : args.filtered(OPT_Sandbox_EQ)) {
+     StringRef ModeName = A->getValue();
+     config->SandboxMode = llvm::StringSwitch<Config::SandboxModeEnum>(ModeName)
+                                .Case("off", Config::SandboxModeEnum::OFF)
+                                .Case("swcfi", Config::SandboxModeEnum::SWCFI)
+                                .Case("hwcfi", Config::SandboxModeEnum::HWCFI)
+                                .Default(Config::SandboxModeEnum::OFF);
+     A->claim();
+  }
+
+ config->checkSections =
       args.hasFlag(OPT_check_sections, OPT_no_check_sections, true);
   config->chroot = args.getLastArgValue(OPT_chroot);
   config->compressDebugSections = getCompressDebugSections(args);
@@ -2793,7 +2803,7 @@ void LinkerDriver::link(opt::InputArgList &args) {
   if (!config->relocatable)
     ctx.inputSections.push_back(createCommentSection());
 
-  if (config->sandbox)
+  if (config->SandboxMode)
     ctx.inputSections.push_back(createSandboxSection());
 
   // Split SHF_MERGE and .eh_frame sections into pieces in preparation for garbage collection.

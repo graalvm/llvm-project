@@ -698,8 +698,20 @@ static driver::LTOKind parseLTOMode(Driver &D, const llvm::opt::ArgList &Args,
   // At this stage we assume that the sandbox flag implies the bitcode embedding
   // and thus the full LTO, which is a prerequisite for it. This implication is temporary and will
   // probably change.
-  bool sandbox = Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false);
-  if (sandbox) return LTOK_Full;
+  //bool sandbox = Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false);
+  //if (sandbox) return LTOK_Full;
+
+  for (const Arg *A : Args.filtered(options::OPT_Sandbox_EQ)) {
+      StringRef ModeName = A->getValue();
+      int SandboxMode = llvm::StringSwitch<int>(ModeName)
+                                .Case("off", 0)
+                                .Case("swcfi", 1)
+                                .Case("hwcfi", 2)
+                                .Default(0);
+      if (SandboxMode) {
+        return LTOK_Full;
+      }
+  }
 
   if (!Args.hasFlag(OptEq, OptNeg, false))
     return LTOK_None;

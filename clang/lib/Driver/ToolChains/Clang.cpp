@@ -4565,9 +4565,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-triple");
   CmdArgs.push_back(Args.MakeArgString(TripleStr));
 
-  bool sandbox = Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false);
-  if (sandbox) {
-    CmdArgs.push_back("-sandbox");
+  for (const Arg *A : Args.filtered(options::OPT_Sandbox_EQ)) {
+     CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + A->getValue()));
+     A->claim();
   }
 
   if (const Arg *MJ = Args.getLastArg(options::OPT_MJ)) {

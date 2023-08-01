@@ -1004,7 +1004,7 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
   if (!actionRequiresCodeGen(Action) && CodeGenOpts.VerifyModule)
     MPM.addPass(VerifierPass());
 
-  if (CodeGenOpts.Sandbox) {
+  if (CodeGenOpts.SandboxMode) {
     printf("Sandbox codegen enabled\n");
     MPM.addPass(NativeSandboxPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(NativeSandboxPass()));
