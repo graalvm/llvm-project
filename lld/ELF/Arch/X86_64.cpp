@@ -1038,7 +1038,7 @@ void Sandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
       0x4c, 0x8b, 0x1d, 0x00, 0x00, 0x00, 0x00, 	// mov    0x0(%rip),%r11
       0x51,                   	                        // push   %rcx
       0x41, 0x8b, 0x0b,             	                // mov    (%r11),%ecx
-      0x81, 0xf9, 0xf3, 0x0f, 0x1e, 0xfa,    	        // cmp    $0xfa1e0ff3,%ecx
+      0x81, 0xc1, 0x0d, 0xf0, 0xe1, 0x05,               // add    $0x5e1f00d,%ecx
       0x0f, 0xae, 0xe8,                                 // lfence
       0x75, 0x04,                	                // jne    1b <trap>
       0x59,                   	                        // pop    %rcx
