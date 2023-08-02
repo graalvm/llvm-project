@@ -227,9 +227,9 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
                             const JobAction &JA) {
   const Driver &D = TC.getDriver();
 
-  for (const Arg *A : Args.filtered(options::OPT_Sandbox_EQ)) {
-    StringRef mode = A->getValue();
-    if (mode != "off") {
+  if (const Arg *A = Args.getLastArg(options::OPT_Sandbox_EQ)) {
+    StringRef sandboxMode = A->getValue();
+    if (sandboxMode != "off") {
         CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + A->getValue()));
         printf("AddLinkerInputs: %s\n", A->getValue());
         CmdArgs.push_back("--mllvm=-lto-embed-bitcode=optimized");

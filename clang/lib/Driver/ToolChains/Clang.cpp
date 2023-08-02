@@ -4565,9 +4565,17 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-triple");
   CmdArgs.push_back(Args.MakeArgString(TripleStr));
 
-  for (const Arg *A : Args.filtered(options::OPT_Sandbox_EQ)) {
-     CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + A->getValue()));
-     A->claim();
+  if (const Arg *A = Args.getLastArg(options::OPT_Sandbox_EQ)) {
+    CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + A->getValue()));
+    StringRef sandboxMode = A->getValue();
+    if (sandboxMode == "swcfi") {
+        CmdArgs.push_back(Args.MakeArgString("-fcf-protection"));
+        CmdArgs.push_back(Args.MakeArgString("-mfunction-return=thunk-extern"));
+        printf("SW CFI options added\n");
+    } else {
+        printf("No SW CFI options added\n");
+    }
+    Args.ClaimAllArgs(options::OPT_Sandbox_EQ);
   }
 
   if (const Arg *MJ = Args.getLastArg(options::OPT_MJ)) {

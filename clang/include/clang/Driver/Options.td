@@ -5382,7 +5382,7 @@ def Sandbox_EQ : Joined<["-"], "sandbox=">,
 	Values<"off,swcfi,hwcfi">,
 	NormalizedValuesScope<"CodeGenOptions::SandboxModeEnum">,
 	NormalizedValues<["OFF", "SWCFI", "HWCFI"]>,
-	MarshallingInfoEnum<CodeGenOpts<"SandboxMode">, "SWCFI">;
+	MarshallingInfoEnum<CodeGenOpts<"SandboxMode">, "OFF">;
 def Sandbox : Flag<["-"], "sandbox">,
     Flags<[CC1Option]>, Alias<Sandbox_EQ>, AliasArgs<["swcfi"]>;
 def NoSandbox : Flag<["-"], "no-sandbox">,
