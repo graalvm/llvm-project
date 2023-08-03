@@ -770,7 +770,7 @@ function(cxx_link_system_libraries target)
   endif()
 
   if (LIBCXX_HAS_ATOMIC_LIB)
-    target_link_libraries(${target} PRIVATE clang_rt.atomic-x86_64)
+    target_link_libraries(${target} PRIVATE atomic)
   endif()
 
   if (MINGW)
