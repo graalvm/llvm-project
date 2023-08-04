@@ -232,8 +232,14 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
     if (sandboxMode != "off") {
         CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + A->getValue()));
         printf("AddLinkerInputs: %s\n", A->getValue());
-        CmdArgs.push_back("--mllvm=-lto-embed-bitcode=optimized");
-        CmdArgs.push_back("--lto-O0");
+
+        bool EmbedBitcode = false; // TODO: 
+        if (EmbedBitcode) { 
+            CmdArgs.push_back("--mllvm=-lto-embed-bitcode=optimized");
+            CmdArgs.push_back("--lto-O0");
+            // Pass the sandbox mode to X86SandboxPollEmitter as the compilation has not happened yet
+            CmdArgs.push_back(Args.MakeArgString(Twine("--mllvm=-sandbox-cfi-mode=") + A->getValue()));
+        }
         A->claim();
     }
   }

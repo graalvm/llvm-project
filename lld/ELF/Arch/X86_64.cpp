@@ -1237,6 +1237,7 @@ static TargetInfo *getTargetInfo() {
   }
 
   if (config->SandboxMode) {
+    // TODO: Implement HW CFI PLTs, as there is on SW CFI mode implemented currently.
     static Sandbox_X86_64 t;
     fprintf(stderr, "Sandbox_X86_64 (mode=%d)\n", config->SandboxMode);
     return &t;

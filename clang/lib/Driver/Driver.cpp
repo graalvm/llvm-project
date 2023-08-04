@@ -700,11 +700,14 @@ static driver::LTOKind parseLTOMode(Driver &D, const llvm::opt::ArgList &Args,
   // probably change.
   //bool sandbox = Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false);
   //if (sandbox) return LTOK_Full;
-
-   if (const Arg *A = Args.getLastArg(options::OPT_Sandbox_EQ)) {
-    StringRef sandboxMode = A->getValue();
-    if (sandboxMode != "off") {
-        return LTOK_Full;
+  
+  bool EmbedBitcode = false; // TODO: 
+  if (EmbedBitcode) {
+    if (const Arg *A = Args.getLastArg(options::OPT_Sandbox_EQ)) {
+        StringRef sandboxMode = A->getValue();
+        if (sandboxMode != "off") {
+            return LTOK_Full;
+        }
     }
   }
 

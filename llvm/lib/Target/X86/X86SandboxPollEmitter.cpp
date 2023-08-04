@@ -23,9 +23,20 @@ using namespace llvm;
 #define PASS_KEY "x86-sandbox-poll-emitter"
 #define DEBUG_TYPE PASS_KEY
 
-static cl::opt<bool> EmitEndbrAfterCalls("x86-emit-endbr-after-calls",
-                               cl::desc("Emit ENDBR64 after call instructions."),
-                               cl::init(true));
+enum SandboxModeEnum {
+    OFF,
+    SWCFI,
+    HWCFI,
+};
+
+static cl::opt<SandboxModeEnum> SandboxCFIMode("sandbox-cfi-mode",
+                               cl::desc("Specifies the sandbox CFI mode."),
+                               cl::values(
+                                clEnumValN(OFF, "off" ,"No CFI"),
+                                clEnumValN(SWCFI, "swcfi" ,"Software CFI"),
+                                clEnumValN(HWCFI, "hwcfi" ,"Hardware CFI")
+                               ),
+                               cl::init(SandboxModeEnum::OFF));
 
 namespace {
 
@@ -48,6 +59,10 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
         MachineFunction &MF) {
     LLVM_DEBUG(dbgs() << "***** " << getPassName() << " : " << MF.getName()
             << " *****\n");
+
+    SandboxModeEnum sandboxMode = SandboxCFIMode;
+    printf("X86SandboxPollEmitter: sandbox mode=%d\n", sandboxMode);
+
     const X86Subtarget *Subtarget = &MF.getSubtarget<X86Subtarget>();
     //const X86RegisterInfo *TRI = Subtarget->getRegisterInfo();
     const X86InstrInfo *TII = Subtarget->getInstrInfo();
@@ -60,8 +75,8 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
             MachineInstr &MI = *MBBI;
             DILocation *DL = MI.getDebugLoc();
 
-            if (EmitEndbrAfterCalls && MI.getDesc().isCall()) {
-                printf("X86SandboxPollEmitter: X86::CALL64r\n");
+            if (SandboxCFIMode == SandboxModeEnum::SWCFI && MI.getDesc().isCall()) {
+                //printf("X86SandboxPollEmitter: X86::CALL64r\n");
                 auto EI = MachineBasicBlock::iterator(MBBI);
                 EI++;
                 BuildMI(MBB, EI, DL, TII->get(X86::ENDBR64));
@@ -72,7 +87,7 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
 
             switch (MI.getOpcode()) {
                 case X86::X86_sandboxcfi: {
-                    printf("X86SandboxPollEmitter: X86_sandboxcfi ON\n");
+                    //printf("X86SandboxPollEmitter: X86_sandboxcfi ON\n");
                     
                     if (!trapMBB) {
                         trapMBB = MF.CreateMachineBasicBlock();
