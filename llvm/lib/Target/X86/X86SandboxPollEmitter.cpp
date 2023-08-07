@@ -105,9 +105,9 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
                     BuildMI(MBB, MI, DL, TII->get(X86::ADD32ri), TargetReg)
                         .addReg(TargetReg)
                         .addImm(0x05e1f00d); // -ENDBR64
+                    BuildMI(MBB, MI, DL, TII->get(X86::JCC_1)).addMBB(trapMBB).addImm(X86::COND_NE);
                     // X86::LFENCE
                     BuildMI(MBB, MI, DL, TII->get(X86::LFENCE));
-                    BuildMI(MBB, MI, DL, TII->get(X86::JCC_1)).addMBB(trapMBB).addImm(X86::COND_NE);
 
                                               //Register TargetReg = MI.getOperand(0).getReg();
                                               //auto CheckI = BuildMI(MBB, MI, DL, TII->get(X86::CMP32ri))
