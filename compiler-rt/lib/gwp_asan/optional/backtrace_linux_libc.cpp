@@ -7,6 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include <assert.h>
+// execinfo.h is missing when compiling agains MUSL. Ignore it until
+// a better solution ia found.
 //#include <execinfo.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -21,7 +23,7 @@
 namespace {
 size_t Backtrace(uintptr_t *TraceBuffer, size_t Size) {
   static_assert(sizeof(uintptr_t) == sizeof(void *), "uintptr_t is not void*");
-
+// As backtrace is declared in the missing execinfo.h, we need to ignore it
   return 0; //backtrace(reinterpret_cast<void **>(TraceBuffer), Size);
 }
 

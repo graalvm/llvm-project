@@ -1224,33 +1224,27 @@ void RetpolineZNow::writePlt(uint8_t *buf, const Symbol &sym,
 }
 
 static TargetInfo *getTargetInfo() {
-  fprintf(stderr, "LLD12: getTargetInfo: ");
   if (config->zRetpolineplt) {
     if (config->zNow) {
       static RetpolineZNow t;
-      fprintf(stderr, "RetpolineZNow\n");
       return &t;
     }
     static Retpoline t;
-    fprintf(stderr, "Retpoline\n");
     return &t;
   }
 
   if (config->SandboxMode) {
     // TODO: Implement HW CFI PLTs, as there is on SW CFI mode implemented currently.
     static Sandbox_X86_64 t;
-    fprintf(stderr, "Sandbox_X86_64 (mode=%d)\n", config->SandboxMode);
     return &t;
   }
 
   if (config->andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT) {
     static IntelIBT t;
-    fprintf(stderr, "IntelIBT\n");
     return &t;
   }
 
   static X86_64 t;
-  fprintf(stderr, "X86_64\n");
   return &t;
 }
 
