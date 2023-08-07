@@ -695,6 +695,22 @@ static llvm::Triple computeTargetTriple(const Driver &D,
 // option occurs last.
 static driver::LTOKind parseLTOMode(Driver &D, const llvm::opt::ArgList &Args,
                                     OptSpecifier OptEq, OptSpecifier OptNeg) {
+  // At this stage we assume that the sandbox flag implies the bitcode embedding
+  // and thus the full LTO, which is a prerequisite for it. This implication is temporary and will
+  // probably change.
+  //bool sandbox = Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false);
+  //if (sandbox) return LTOK_Full;
+  
+  bool EmbedBitcode = false; // TODO: 
+  if (EmbedBitcode) {
+    if (const Arg *A = Args.getLastArg(options::OPT_Sandbox_EQ)) {
+        StringRef sandboxMode = A->getValue();
+        if (sandboxMode != "off") {
+            return LTOK_Full;
+        }
+    }
+  }
+
   if (!Args.hasFlag(OptEq, OptNeg, false))
     return LTOK_None;
 

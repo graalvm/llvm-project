@@ -232,6 +232,14 @@ public:
     unsigned LinkFlags = 0;
   };
 
+  enum SandboxModeEnum {
+    OFF,
+    SWCFI,
+    HWCFI,
+  };
+
+  SandboxModeEnum SandboxMode;
+
   /// The files specified here are linked in to the module before optimizations.
   std::vector<BitcodeFileToLink> LinkBitcodeFiles;
 

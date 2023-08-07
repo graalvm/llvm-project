@@ -227,6 +227,23 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
                             const JobAction &JA) {
   const Driver &D = TC.getDriver();
 
+  if (const Arg *A = Args.getLastArg(options::OPT_Sandbox_EQ)) {
+    StringRef sandboxMode = A->getValue();
+    if (sandboxMode != "off") {
+        CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + A->getValue()));
+        printf("AddLinkerInputs: %s\n", A->getValue());
+
+        bool EmbedBitcode = false; // TODO: 
+        if (EmbedBitcode) { 
+            CmdArgs.push_back("--mllvm=-lto-embed-bitcode=optimized");
+            CmdArgs.push_back("--lto-O0");
+            // Pass the sandbox mode to X86SandboxPollEmitter as the compilation has not happened yet
+            CmdArgs.push_back(Args.MakeArgString(Twine("--mllvm=-sandbox-cfi-mode=") + A->getValue()));
+        }
+        A->claim();
+    }
+  }
+
   // Add extra linker input arguments which are not treated as inputs
   // (constructed via -Xarch_).
   Args.AddAllArgValues(CmdArgs, options::OPT_Zlinker_input);

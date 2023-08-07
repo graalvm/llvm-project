@@ -407,6 +407,7 @@ void X86_64::writePlt(uint8_t *buf, const Symbol &sym,
   write32le(buf + 12, in.plt->getVA() - pltEntryAddr - 16);
 }
 
+
 RelType X86_64::getDynRel(RelType type) const {
   if (type == R_X86_64_64 || type == R_X86_64_PC64 || type == R_X86_64_SIZE32 ||
       type == R_X86_64_SIZE64)
@@ -1004,6 +1005,53 @@ void X86_64::relocateAlloc(InputSectionBase &sec, uint8_t *buf) const {
   }
 }
 
+namespace {
+class Sandbox_X86_64 : public X86_64 {
+public:
+  Sandbox_X86_64();
+  void writePltHeader(uint8_t *buf) const override;
+  void writePlt(uint8_t *buf, const Symbol &sym,
+                uint64_t pltEntryAddr) const override;
+};
+} // namespace
+
+Sandbox_X86_64::Sandbox_X86_64() {
+    pltEntrySize = 0x20;
+}
+
+void Sandbox_X86_64::writePltHeader(uint8_t *buf) const {
+  // PLT header should not be entered when using MUSL as it initializes got.plt 
+  // entries eagerily. The HLT instructions is inserted as an assertion of
+  // this fact.
+  const uint8_t pltData[] = {
+      0xf4, 0x90, 0x90, 0x90, 0x90, 0x90, // hlt, nop, ...
+      0x90, 0x90, 0x90, 0x90, 0x90, 0x90, // 
+      0x90, 0x90, 0x90, 0x90, //
+  };
+  memcpy(buf, pltData, sizeof(pltData));
+}
+
+void Sandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
+                      uint64_t pltEntryAddr) const {
+  const uint8_t inst[] = {
+      0xf3, 0x0f, 0x1e, 0xfa,          	                // endbr64 
+      0x4c, 0x8b, 0x1d, 0x00, 0x00, 0x00, 0x00, 	// mov    0x0(%rip),%r11
+      0x51,                   	                        // push   %rcx
+      0x41, 0x8b, 0x0b,             	                // mov    (%r11),%ecx
+      0x81, 0xc1, 0x0d, 0xf0, 0xe1, 0x05,               // add    $0x5e1f00d,%ecx
+      0x75, 0x04,                	                // jne    1b <trap>
+      0x59,                   	                        // pop    %rcx
+      0x0f, 0xae, 0xe8,                                 // lfence
+      0x41, 0xff, 0xe3,             	                // jmpq   *%r11
+      0xcc,                   	                        // int3   
+      0x90,                                             // nop
+  };
+  fprintf(stderr, "LLD12: Writing PLT\n");
+  memcpy(buf, inst, sizeof(inst));
+
+  write32le(buf + 7, sym.getGotPltVA() - pltEntryAddr - 11);
+}
+
 // If Intel Indirect Branch Tracking is enabled, we have to emit special PLT
 // entries containing endbr64 instructions. A PLT entry will be split into two
 // parts, one in .plt.sec (writePlt), and the other in .plt (writeIBTPlt).
@@ -1182,6 +1230,12 @@ static TargetInfo *getTargetInfo() {
       return &t;
     }
     static Retpoline t;
+    return &t;
+  }
+
+  if (config->SandboxMode) {
+    // TODO: Implement HW CFI PLTs, as there is on SW CFI mode implemented currently.
+    static Sandbox_X86_64 t;
     return &t;
   }
 

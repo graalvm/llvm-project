@@ -4565,6 +4565,25 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-triple");
   CmdArgs.push_back(Args.MakeArgString(TripleStr));
 
+  if (const Arg *A = Args.getLastArg(options::OPT_Sandbox_EQ)) {
+    CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + A->getValue()));
+    StringRef sandboxMode = A->getValue();
+    if (sandboxMode == "swcfi") {
+        CmdArgs.push_back(Args.MakeArgString("-fcf-protection"));
+        CmdArgs.push_back(Args.MakeArgString("-mfunction-return=thunk-extern"));
+        CmdArgs.push_back(Args.MakeArgString("-mllvm"));
+        CmdArgs.push_back(Args.MakeArgString("-sandbox-cfi-mode=swcfi"));
+        printf("SW CFI options added\n");
+    } else if (sandboxMode == "hwcfi") {
+        CmdArgs.push_back(Args.MakeArgString("-mllvm"));
+        CmdArgs.push_back(Args.MakeArgString("-sandbox-cfi-mode=hwcfi"));
+        printf("HW CFI options added\n");
+    } else {
+        printf("No SW CFI options added\n");
+    }
+    Args.ClaimAllArgs(options::OPT_Sandbox_EQ);
+  }
+
   if (const Arg *MJ = Args.getLastArg(options::OPT_MJ)) {
     DumpCompilationDatabase(C, MJ->getValue(), TripleStr, Output, Input, Args);
     Args.ClaimAllArgs(options::OPT_MJ);

@@ -7,7 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 #include <assert.h>
-#include <execinfo.h>
+// execinfo.h is missing when compiling agains MUSL. Ignore it until
+// a better solution ia found.
+//#include <execinfo.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -21,8 +23,8 @@
 namespace {
 size_t Backtrace(uintptr_t *TraceBuffer, size_t Size) {
   static_assert(sizeof(uintptr_t) == sizeof(void *), "uintptr_t is not void*");
-
-  return backtrace(reinterpret_cast<void **>(TraceBuffer), Size);
+// As backtrace is declared in the missing execinfo.h, we need to ignore it
+  return 0; //backtrace(reinterpret_cast<void **>(TraceBuffer), Size);
 }
 
 // We don't need any custom handling for the Segv backtrace - the libc unwinder
@@ -41,7 +43,7 @@ static void PrintBacktrace(uintptr_t *Trace, size_t TraceLength,
   }
 
   char **BacktraceSymbols =
-      backtrace_symbols(reinterpret_cast<void **>(Trace), TraceLength);
+      NULL; //backtrace_symbols(reinterpret_cast<void **>(Trace), TraceLength);
 
   for (size_t i = 0; i < TraceLength; ++i) {
     if (!BacktraceSymbols)
