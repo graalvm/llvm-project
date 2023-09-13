@@ -4570,6 +4570,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     StringRef sandboxMode = A->getValue();
     if (sandboxMode == "swcfi") {
         CmdArgs.push_back(Args.MakeArgString("-fcf-protection"));
+        CmdArgs.push_back(Args.MakeArgString("-fno-jump-tables"));
         CmdArgs.push_back(Args.MakeArgString("-mfunction-return=thunk-extern"));
         CmdArgs.push_back(Args.MakeArgString("-mllvm"));
         CmdArgs.push_back(Args.MakeArgString("-sandbox-cfi-mode=swcfi"));
