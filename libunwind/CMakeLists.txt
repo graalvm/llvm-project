@@ -34,6 +34,7 @@ if (LIBUNWIND_BUILD_32_BITS)
 endif()
 
 option(LIBUNWIND_ENABLE_CET "Build libunwind with CET enabled." OFF)
+option(LIBUNWIND_ENABLE_SW_CET "Build libunwind with Software CET enabled." OFF)
 option(LIBUNWIND_ENABLE_ASSERTIONS "Enable assertions independent of build mode." ON)
 option(LIBUNWIND_ENABLE_PEDANTIC "Compile with pedantic enabled." ON)
 option(LIBUNWIND_ENABLE_WERROR "Fail and stop if a warning is triggered." OFF)
@@ -156,6 +157,13 @@ if (LIBUNWIND_USE_COMPILER_RT AND NOT LIBUNWIND_HAS_NODEFAULTLIBS_FLAG)
 endif()
 
 add_compile_flags_if_supported(-Werror=return-type)
+
+if (LIBUNWIND_ENABLE_SW_CET)
+  if (LIBUNWIND_ENABLE_CET)
+    message(SEND_ERROR "Can't enable both software and hardware CET.")
+  endif()
+  add_compile_definitions(SOFTWARE_CET)
+endif()
 
 if (LIBUNWIND_ENABLE_CET)
   add_compile_flags_if_supported(-fcf-protection=full)

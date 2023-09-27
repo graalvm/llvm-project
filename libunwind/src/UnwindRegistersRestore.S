@@ -134,7 +134,17 @@ DEFINE_LIBUNWIND_FUNCTION(__libunwind_Registers_x86_64_jumpto)
   movq  56(%rdi), %rsp  # cut back rsp to new location
   pop    %rdi      # rdi was saved here earlier
   pop    %rcx
-  jmpq   *%rcx
+#if defined(SOFTWARE_CET)
+  push   %rax
+  mov    (%rcx), %eax
+  add    $0x05E1F00D, %eax
+  jz     __pass_sw_cfi
+  int    $3
+__pass_sw_cfi:
+  lfence
+  pop    %rax
+#endif
+  jmp    *%rcx
 
 
 #elif defined(__powerpc64__)

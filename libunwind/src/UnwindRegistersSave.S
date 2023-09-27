@@ -125,8 +125,20 @@ DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
   movdqu %xmm14,400(PTR)
   movdqu %xmm15,416(PTR)
 #endif
+#if defined(SOFTWARE_CET)
+  pop   %r11
+  mov   (%r11),%eax
+  add   $0x05e1f00d,%eax
+  jne   __fail_sw_cet
+  lfence
+  xorl  %eax, %eax    # return UNW_ESUCCESS
+  jmpq  *%r11
+__fail_sw_cet:
+  int   $3
+#else
   xorl  %eax, %eax    # return UNW_ESUCCESS
   ret
+#endif
 
 #elif defined(__mips__) && defined(_ABIO32) && _MIPS_SIM == _ABIO32
 
