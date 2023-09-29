@@ -231,7 +231,6 @@ void tools::AddLinkerInputs(const ToolChain &TC, const InputInfoList &Inputs,
     StringRef sandboxMode = A->getValue();
     if (sandboxMode != "off") {
         CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + A->getValue()));
-        printf("AddLinkerInputs: %s\n", A->getValue());
 
         bool EmbedBitcode = false; // TODO: 
         if (EmbedBitcode) { 

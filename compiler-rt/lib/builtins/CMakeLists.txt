@@ -316,6 +316,15 @@ if (NOT MSVC)
     x86_64/floatundisf.S
   )
 
+  option(COMPILER_RT_INCLUDE_RETTHUNK
+    "Include return thunk for SW CFI in builtins" OFF)
+  if (COMPILER_RT_INCLUDE_RETTHUNK)
+    set(x86_64_SOURCES
+      ${x86_64_SOURCES}
+      x86_64/retthunk.S
+    )
+  endif()
+
   if (NOT ANDROID)
     set(x86_64_SOURCES
       ${x86_64_SOURCES}
