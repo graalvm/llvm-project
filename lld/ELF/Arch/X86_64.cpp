@@ -1046,7 +1046,6 @@ void Sandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
       0xcc,                   	                        // int3   
       0x90,                                             // nop
   };
-  fprintf(stderr, "LLD12: Writing PLT\n");
   memcpy(buf, inst, sizeof(inst));
 
   write32le(buf + 7, sym.getGotPltVA() - pltEntryAddr - 11);
