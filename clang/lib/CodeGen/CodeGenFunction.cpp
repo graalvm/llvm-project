@@ -929,7 +929,12 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
       }
     } else if (CGM.getCodeGenOpts().FunctionReturnThunks)
       Fn->addFnAttr(llvm::Attribute::FnRetThunkExtern);
-  }
+  } else if (CGM.getCodeGenOpts().SandboxMode && CGM.getCodeGenOpts().FunctionReturnThunks)
+      // When sandboxing, we need to enforce FnRetThunkExtern attribute even for
+      // functions without the declaration, such as C++ virtual table thunks. Such functions
+      // also contain ret instructions that must be replaced by the X86ReturnThunks pass,
+      // which would ignore such functions otherwise. 
+      Fn->addFnAttr(llvm::Attribute::FnRetThunkExtern);
 
   if (FD && (getLangOpts().OpenCL ||
              (getLangOpts().HIP && getLangOpts().CUDAIsDevice))) {
