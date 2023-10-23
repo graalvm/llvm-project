@@ -1327,7 +1327,7 @@ let hasSideEffects = 1, usesCustomInserter = 0,
 let hasSideEffects = 1, usesCustomInserter = 0,
     hasNoSchedulingInfo = 1 in
   def X86_sandboxcfi
-    : PseudoI<(outs), (ins GR32:$src), [(int_sandboxcfi GR32:$src)]>;
+    : PseudoI<(outs GR64:$ret), (ins GR32:$entry, GR64:$entryPtr), [(set GR64:$ret, (int_sandboxcfi GR32:$entry, GR64:$entryPtr))]>;
 
 let isBarrier = 1, hasSideEffects = 1, usesCustomInserter = 1,
     SchedRW = [WriteSystem] in

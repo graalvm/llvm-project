@@ -28,14 +28,15 @@ static bool isIgnoredForPolling(Function &F) {
 PreservedAnalyses NativeSandboxPass::run(Module &M,
         ModuleAnalysisManager &AM) {
 
+    Type* Int8Type = IntegerType::getInt8Ty(M.getContext());
+    Type* VoidPtrType = PointerType::getUnqual(Int8Type);
+
     FunctionCallee sandbox_poll_instr = M.getOrInsertFunction("llvm.sandboxpoll", Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
-    FunctionCallee sandbox_cfi_instr = M.getOrInsertFunction("llvm.sandboxcfi", Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
+    FunctionCallee sandbox_cfi_instr = M.getOrInsertFunction("llvm.sandboxcfi", VoidPtrType, Type::getInt32Ty(M.getContext()), VoidPtrType);
     
     if (!isIgnoredForPolling(M)) {
         IRBuilder<> Builder(M.getContext());
 
-        Type* Int8Type = IntegerType::getInt8Ty(M.getContext());
-        Type* VoidPtrType = PointerType::getUnqual(Int8Type);
         M.getOrInsertGlobal("poll_page", VoidPtrType);
         GlobalVariable *poll_page_global = M.getNamedGlobal("poll_page");
         poll_page_global->setLinkage(GlobalValue::ExternalLinkage);
@@ -70,10 +71,10 @@ static void insertSandboxPoll(Function &F, IRBuilder<> &Builder, LoadInst *poll_
     Builder.CreateCall(sandbox_poll_instr, poll_page_content);
 }
 
-static void insertSandboxCFI(Function &F, IRBuilder<> &Builder, LoadInst *endbr_content) {
+static CallInst* insertSandboxCFI(Function &F, IRBuilder<> &Builder, LoadInst *endbr_content, Value *endbrPtr) {
     Module *M = F.getParent();
     Function *sandbox_cfi_instr = M->getFunction("llvm.sandboxcfi");
-    Builder.CreateCall(sandbox_cfi_instr, endbr_content);
+    return Builder.CreateCall(sandbox_cfi_instr, { endbr_content, endbrPtr });
 }
 
 PreservedAnalyses NativeSandboxPass::run(Function &F,
@@ -99,7 +100,8 @@ PreservedAnalyses NativeSandboxPass::run(Function &F,
                     IRBuilder<> Builder(CB);
                    
                     LoadInst *endbr_content = Builder.CreateLoad(Type::getInt32Ty(F.getContext()), CB->getCalledOperand());    
-                    insertSandboxCFI(F, Builder, endbr_content);
+                    CallInst *sandbox_cfi_instr_call = insertSandboxCFI(F, Builder, endbr_content, CB->getCalledOperand());
+                    CB->setCalledOperand(sandbox_cfi_instr_call);
                 }
             }
 
