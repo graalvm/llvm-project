@@ -203,6 +203,8 @@ set(LIBCXX_ABI_DEFINES "" CACHE STRING "A semicolon separated list of ABI macros
 option(LIBCXX_EXTRA_SITE_DEFINES "Extra defines to add into __config_site")
 option(LIBCXX_USE_COMPILER_RT "Use compiler-rt instead of libgcc" OFF)
 
+option(LIBCXX_USE_COMPILER_RT_ATOMICS "Use atomics library from compiler-rt instead of libatomic" OFF)
+
 option(LIBCXX_ENABLE_BACKWARDS_COMPATIBILITY_DEBUG_MODE_SYMBOLS
   "Whether to include the old Debug mode symbols in the compiled library. This
    is provided for backwards compatibility since the compiled library used to
@@ -769,7 +771,9 @@ function(cxx_link_system_libraries target)
     target_link_libraries(${target} PRIVATE gcc_s)
   endif()
 
-  if (LIBCXX_HAS_ATOMIC_LIB)
+  if (LIBCXX_USE_COMPILER_RT_ATOMICS)
+    # TODO
+  elseif (LIBCXX_HAS_ATOMIC_LIB)
     target_link_libraries(${target} PRIVATE atomic)
   endif()
 
