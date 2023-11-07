@@ -260,8 +260,9 @@ static const X86MemoryFoldTableEntry MemoryFoldTable0[] = {
   { X86::CALL16r_NT,          X86::CALL16m_NT,          TB_FOLDED_LOAD },
   { X86::CALL32r,             X86::CALL32m,             TB_FOLDED_LOAD },
   { X86::CALL32r_NT,          X86::CALL32m_NT,          TB_FOLDED_LOAD },
-  { X86::CALL64r,             X86::CALL64m,             TB_FOLDED_LOAD },
-  { X86::CALL64r_NT,          X86::CALL64m_NT,          TB_FOLDED_LOAD },
+// Prevent folding X86::CALL64r into X86::CALL64m
+  { X86::CALL64r,             X86::CALL64m,             TB_FOLDED_LOAD | TB_NO_SANDBOX },
+  { X86::CALL64r_NT,          X86::CALL64m_NT,          TB_FOLDED_LOAD | TB_NO_SANDBOX },
   { X86::CMP16ri,             X86::CMP16mi,             TB_FOLDED_LOAD },
   { X86::CMP16ri8,            X86::CMP16mi8,            TB_FOLDED_LOAD },
   { X86::CMP16rr,             X86::CMP16mr,             TB_FOLDED_LOAD },

@@ -20,6 +20,7 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
 #include "llvm/IR/CallingConv.h"
+#include "llvm/IR/Attributes.h"
 #include <climits>
 #include <memory>
 
@@ -112,6 +113,8 @@ class X86Subtarget final : public X86GenSubtargetInfo {
   X86TargetLowering TLInfo;
   X86FrameLowering FrameLowering;
 
+  Attribute Sandboxed;
+
 public:
   /// This constructor initializes the data members to match that
   /// of the specified triple.
@@ -119,7 +122,12 @@ public:
   X86Subtarget(const Triple &TT, StringRef CPU, StringRef TuneCPU, StringRef FS,
                const X86TargetMachine &TM, MaybeAlign StackAlignOverride,
                unsigned PreferVectorWidthOverride,
-               unsigned RequiredVectorWidth);
+               unsigned RequiredVectorWidth,
+               Attribute &Sandboxed);
+               
+  bool isSandboxed() const {
+    return Sandboxed.isValid();
+  }
 
   const X86TargetLowering *getTargetLowering() const override {
     return &TLInfo;

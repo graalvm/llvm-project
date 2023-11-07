@@ -6085,6 +6085,10 @@ static bool shouldPreventUndefRegUpdateMemFold(MachineFunction &MF,
   return VRegDef && VRegDef->isImplicitDef();
 }
 
+bool X86InstrInfo::isSandboxMode() const {
+  return Subtarget.isSandboxed();
+}
+
 MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
     MachineFunction &MF, MachineInstr &MI, unsigned OpNum,
     ArrayRef<MachineOperand> MOs, MachineBasicBlock::iterator InsertPt,
@@ -6160,6 +6164,10 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   }
 
   if (I != nullptr) {
+    bool isNoSandbox = I->Flags & TB_NO_SANDBOX;
+    if (isNoSandbox && isSandboxMode())
+        return nullptr;
+
     unsigned Opcode = I->DstOp;
     bool FoldedLoad =
         isTwoAddrFold || (OpNum == 0 && I->Flags & TB_FOLDED_LOAD) || OpNum > 0;

@@ -203,6 +203,10 @@ namespace {
 #include "X86GenDAGISel.inc"
 
   private:
+    bool isSandboxMode() const {
+        return Subtarget->isSandboxed();
+    }
+
     void Select(SDNode *N) override;
 
     bool foldOffsetIntoAddress(uint64_t Offset, X86ISelAddressMode &AM);

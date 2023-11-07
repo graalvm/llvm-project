@@ -314,14 +314,16 @@ X86Subtarget::X86Subtarget(const Triple &TT, StringRef CPU, StringRef TuneCPU,
                            StringRef FS, const X86TargetMachine &TM,
                            MaybeAlign StackAlignOverride,
                            unsigned PreferVectorWidthOverride,
-                           unsigned RequiredVectorWidth)
+                           unsigned RequiredVectorWidth,
+                           Attribute &Sandboxed)
     : X86GenSubtargetInfo(TT, CPU, TuneCPU, FS),
       PICStyle(PICStyles::Style::None), TM(TM), TargetTriple(TT),
       StackAlignOverride(StackAlignOverride),
       PreferVectorWidthOverride(PreferVectorWidthOverride),
       RequiredVectorWidth(RequiredVectorWidth),
       InstrInfo(initializeSubtargetDependencies(CPU, TuneCPU, FS)),
-      TLInfo(TM, *this), FrameLowering(*this, getStackAlignment()) {
+      TLInfo(TM, *this), FrameLowering(*this, getStackAlignment()),
+      Sandboxed(Sandboxed) {
   // Determine the PICStyle based on the target selected.
   if (!isPositionIndependent())
     setPICStyle(PICStyles::Style::None);

@@ -255,6 +255,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
   Attribute CPUAttr = F.getFnAttribute("target-cpu");
   Attribute TuneAttr = F.getFnAttribute("tune-cpu");
   Attribute FSAttr = F.getFnAttribute("target-features");
+  Attribute Sandboxed = F.getFnAttribute("sandboxed");
 
   StringRef CPU =
       CPUAttr.isValid() ? CPUAttr.getValueAsString() : (StringRef)TargetCPU;
@@ -334,7 +335,7 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
     I = std::make_unique<X86Subtarget>(
         TargetTriple, CPU, TuneCPU, FS, *this,
         MaybeAlign(F.getParent()->getOverrideStackAlignment()),
-        PreferVectorWidthOverride, RequiredVectorWidth);
+        PreferVectorWidthOverride, RequiredVectorWidth, Sandboxed);
   }
   return I.get();
 }

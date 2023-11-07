@@ -72,6 +72,10 @@ public:
 #include "X86GenFastISel.inc"
 
 private:
+  bool isSandboxMode() const {
+    return Subtarget->isSandboxed();
+  }
+
   bool X86FastEmitCompare(const Value *LHS, const Value *RHS, EVT VT,
                           const DebugLoc &DL);
 
@@ -3483,6 +3487,13 @@ bool X86FastISel::fastLowerCall(CallLoweringInfo &CLI) {
                     OpFlags == X86II::MO_GOTPCREL ||
                     OpFlags == X86II::MO_GOTPCREL_NORELAX ||
                     OpFlags == X86II::MO_COFFSTUB;
+
+    if (NeedLoad && isSandboxMode()) {
+        // Fallback from fast selection as we do not want to emit X86::CALL64m
+        // in the next statement when in the sandbox mode.
+        return false;
+    }
+
     unsigned CallOpc = NeedLoad
                            ? (Is64Bit ? X86::CALL64m : X86::CALL32m)
                            : (Is64Bit ? X86::CALL64pcrel32 : X86::CALLpcrel32);

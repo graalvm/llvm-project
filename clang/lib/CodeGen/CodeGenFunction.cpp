@@ -936,6 +936,10 @@ void CodeGenFunction::StartFunction(GlobalDecl GD, QualType RetTy,
       // which would ignore such functions otherwise. 
       Fn->addFnAttr(llvm::Attribute::FnRetThunkExtern);
 
+  if (CGM.getCodeGenOpts().SandboxMode) {
+    Fn->addFnAttr("sandboxed");
+  }
+
   if (FD && (getLangOpts().OpenCL ||
              (getLangOpts().HIP && getLangOpts().CUDAIsDevice))) {
     // Add metadata for a kernel function.

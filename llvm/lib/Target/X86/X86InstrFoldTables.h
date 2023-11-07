@@ -60,7 +60,8 @@ enum {
   TB_BCAST_SD   =   3 << TB_BCAST_TYPE_SHIFT,
   TB_BCAST_MASK = 0x3 << TB_BCAST_TYPE_SHIFT,
 
-  // Unused bits 14-15
+  TB_NO_SANDBOX =   1 << 14,
+  // Unused bit 15
 };
 
 // This struct is used for both the folding and unfold tables. They KeyOp

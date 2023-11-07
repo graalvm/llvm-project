@@ -105,7 +105,6 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
                     Register TargetPtrReg = MI.getOperand(2).getReg();
                     Register ReturnReg = MI.getOperand(0).getReg();
                     if (TargetPtrReg != ReturnReg) {
-                        //printf("TargetPtrReg.id=%d, ReturnReg.id=%d\n", TargetPtrReg.id(), ReturnReg.id());
                         BuildMI(MBB, MI, DL, TII->get(X86::MOV64rr), ReturnReg).addReg(TargetPtrReg);
                     }
 

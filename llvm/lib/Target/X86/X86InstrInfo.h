@@ -603,6 +603,8 @@ protected:
   isCopyInstrImpl(const MachineInstr &MI) const override;
 
 private:
+  bool isSandboxMode() const;
+
   /// This is a helper for convertToThreeAddress for 8 and 16-bit instructions.
   /// We use 32-bit LEA to form 3-address code by promoting to a 32-bit
   /// super-register and then truncating back down to a 8/16-bit sub-register.

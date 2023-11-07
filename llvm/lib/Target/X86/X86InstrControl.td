@@ -418,9 +418,11 @@ let isPseudo = 1, isCall = 1, isCodeGenOnly = 1,
 let isPseudo = 1, isCall = 1, isCodeGenOnly = 1,
     Uses = [RSP, SSP],
     SchedRW = [WriteJump] in {
+
+// Prevent folding X86::CALL64r into X86::CALL64m
   def CALL64m_RVMARKER :
      PseudoI<(outs), (ins i64imm:$rvfunc, i64mem:$dst), [(X86call_rvmarker tglobaladdr:$rvfunc, (loadi64 addr:$dst))]>,
-             Requires<[In64BitMode]>;
+             Requires<[In64BitMode, NotInSandboxMode]>;
 
   def CALL64r_RVMARKER :
     PseudoI<(outs), (ins i64imm:$rvfunc, GR64:$dst), [(X86call_rvmarker tglobaladdr:$rvfunc, GR64:$dst)]>,

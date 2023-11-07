@@ -1059,6 +1059,9 @@ def HasMFence    : Predicate<"Subtarget->hasMFence()">;
 def UseIndirectThunkCalls : Predicate<"Subtarget->useIndirectThunkCalls()">;
 def NotUseIndirectThunkCalls : Predicate<"!Subtarget->useIndirectThunkCalls()">;
 
+
+def NotInSandboxMode  : Predicate<"!isSandboxMode()">;
+
 //===----------------------------------------------------------------------===//
 // X86 Instruction Format Definitions.
 //
