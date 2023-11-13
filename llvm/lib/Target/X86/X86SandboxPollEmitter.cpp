@@ -93,13 +93,20 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
 
                     MBB.addSuccessor(trapMBB);
 
-                    Register TargetReg = MI.getOperand(0).getReg(); 
+                    Register TargetReg = MI.getOperand(1).getReg(); 
                     BuildMI(MBB, MI, DL, TII->get(X86::ADD32ri), TargetReg)
                         .addReg(TargetReg)
                         .addImm(0x05e1f00d); // -ENDBR64
                     BuildMI(MBB, MI, DL, TII->get(X86::JCC_1)).addMBB(trapMBB).addImm(X86::COND_NE);
                     // X86::LFENCE
                     BuildMI(MBB, MI, DL, TII->get(X86::LFENCE));
+
+                    // copy the target address register to the return register if the two differ
+                    Register TargetPtrReg = MI.getOperand(2).getReg();
+                    Register ReturnReg = MI.getOperand(0).getReg();
+                    if (TargetPtrReg != ReturnReg) {
+                        BuildMI(MBB, MI, DL, TII->get(X86::MOV64rr), ReturnReg).addReg(TargetPtrReg);
+                    }
 
                     Modified = true;
                     break;

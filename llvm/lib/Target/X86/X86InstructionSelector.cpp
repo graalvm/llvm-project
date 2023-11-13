@@ -66,6 +66,10 @@ public:
   static const char *getName() { return DEBUG_TYPE; }
 
 private:
+  bool isSandboxMode() const {
+    return STI.isSandboxed();
+  }
+
   /// tblgen-erated 'select' implementation, used as the initial selector for
   /// the patterns that don't require complex C++.
   bool selectImpl(MachineInstr &I, CodeGenCoverage &CoverageInfo) const;
