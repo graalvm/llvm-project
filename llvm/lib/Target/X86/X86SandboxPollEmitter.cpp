@@ -60,6 +60,9 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
     LLVM_DEBUG(dbgs() << "***** " << getPassName() << " : " << MF.getName()
             << " *****\n");
 
+    if (SandboxCFIMode == SandboxModeEnum::OFF)
+        return false;
+
     const X86Subtarget *Subtarget = &MF.getSubtarget<X86Subtarget>();
     const X86InstrInfo *TII = Subtarget->getInstrInfo();
     const X86RegisterInfo &RI = TII->getRegisterInfo();

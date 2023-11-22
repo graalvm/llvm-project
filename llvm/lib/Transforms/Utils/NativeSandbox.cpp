@@ -46,8 +46,6 @@ PreservedAnalyses NativeSandboxPass::run(Module &M,
         //; Function Attrs: nocallback nofree nosync nounwind readnone speculatable willreturn
         //declare nonnull ptr @llvm.threadlocal.address.p0(ptr nonnull) #2
         FunctionCallee tl_addr_instr = M.getOrInsertFunction("llvm.threadlocal.address.p0", VoidPtrType, VoidPtrType);
-   } else {
-        errs().write_escaped(M.getName()) << '\n';
     }
 
     return PreservedAnalyses::all();
