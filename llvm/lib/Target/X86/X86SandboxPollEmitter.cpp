@@ -70,8 +70,9 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
         for (auto MBBI = MBB.begin(); MBBI != MBB.end(); ++MBBI) {
             MachineInstr &MI = *MBBI;
             DILocation *DL = MI.getDebugLoc();
+            int Opc = MI.getOpcode();
 
-            if (SandboxCFIMode == SandboxModeEnum::SWCFI && MI.getDesc().isCall()) {
+            if (SandboxCFIMode == SandboxModeEnum::SWCFI && MI.getDesc().isCall() && !(Opc >= X86::TAILJMPd && Opc <= X86::TAILJMPr64_REX)) {
                 auto EI = MachineBasicBlock::iterator(MBBI);
                 EI++;
                 BuildMI(MBB, EI, DL, TII->get(X86::ENDBR64));
@@ -80,7 +81,7 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
             if (MI.getOpcode() != X86::X86_sandboxpoll && MI.getOpcode() != X86::X86_sandboxcfi)
                 continue;
 
-            switch (MI.getOpcode()) {
+            switch (Opc) {
                 case X86::X86_sandboxcfi: {
                     
                     if (!trapMBB) {
