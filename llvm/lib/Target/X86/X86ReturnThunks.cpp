@@ -43,6 +43,10 @@ using namespace llvm;
 #define PASS_KEY "x86-return-thunks"
 #define DEBUG_TYPE PASS_KEY
 
+cl::opt<bool> ForceReturnThunk(
+    "x86-force-return-thunk", cl::init(false), cl::Hidden,
+    cl::desc("Force replacement of ret by return thunk jump."));
+
 namespace {
 struct X86ReturnThunks final : public MachineFunctionPass {
   static char ID;
@@ -56,10 +60,9 @@ char X86ReturnThunks::ID = 0;
 
 bool X86ReturnThunks::runOnMachineFunction(MachineFunction &MF) {
   LLVM_DEBUG(dbgs() << getPassName() << "\n");
-
   bool Modified = false;
 
-  if (!MF.getFunction().hasFnAttribute(llvm::Attribute::FnRetThunkExtern))
+  if (!ForceReturnThunk && !MF.getFunction().hasFnAttribute(llvm::Attribute::FnRetThunkExtern))
     return Modified;
 
   StringRef ThunkName = "__x86_return_thunk";

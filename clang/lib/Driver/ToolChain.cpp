@@ -656,7 +656,7 @@ std::string ToolChain::GetLinkerPath(bool *LinkerIsLLD) const {
   if (S) {
     StringRef SM = S->getValue();
     if ((UseLinker != "musl-clang") && (UseLinker != "musl-clang++") && SM != "off") {
-        printf("Forcing LLD linker\n");
+        printf("Forcing LLD linker (instead of %s)\n", UseLinker.data());
         UseLinker = "lld";
     }
   }
