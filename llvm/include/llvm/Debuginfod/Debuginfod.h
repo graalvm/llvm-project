@@ -38,9 +38,20 @@
 
 namespace llvm {
 
+/// Returns false if a debuginfod lookup can be determined to have no chance of
+/// succeeding.
+bool canUseDebuginfod();
+
 /// Finds default array of Debuginfod server URLs by checking DEBUGINFOD_URLS
 /// environment variable.
-Expected<SmallVector<StringRef>> getDefaultDebuginfodUrls();
+SmallVector<StringRef> getDefaultDebuginfodUrls();
+
+/// Returns the cache key for a given debuginfod URL path.
+std::string getDebuginfodCacheKey(StringRef UrlPath);
+
+/// Sets the list of debuginfod server URLs to query. This overrides the
+/// environment variable DEBUGINFOD_URLS.
+void setDefaultDebuginfodUrls(const SmallVector<StringRef> &URLs);
 
 /// Finds a default local file caching directory for the debuginfod client,
 /// first checking DEBUGINFOD_CACHE_PATH.
@@ -50,14 +61,25 @@ Expected<std::string> getDefaultDebuginfodCacheDirectory();
 /// DEBUGINFOD_TIMEOUT environment variable, default is 90 seconds (90000 ms).
 std::chrono::milliseconds getDefaultDebuginfodTimeout();
 
+/// Get the full URL path for a source request of a given BuildID and file
+/// path.
+std::string getDebuginfodSourceUrlPath(object::BuildIDRef ID,
+                                       StringRef SourceFilePath);
+
 /// Fetches a specified source file by searching the default local cache
 /// directory and server URLs.
 Expected<std::string> getCachedOrDownloadSource(object::BuildIDRef ID,
                                                 StringRef SourceFilePath);
 
+/// Get the full URL path for an executable request of a given BuildID.
+std::string getDebuginfodExecutableUrlPath(object::BuildIDRef ID);
+
 /// Fetches an executable by searching the default local cache directory and
 /// server URLs.
 Expected<std::string> getCachedOrDownloadExecutable(object::BuildIDRef ID);
+
+/// Get the full URL path for a debug binary request of a given BuildID.
+std::string getDebuginfodDebuginfoUrlPath(object::BuildIDRef ID);
 
 /// Fetches a debug binary by searching the default local cache directory and
 /// server URLs.

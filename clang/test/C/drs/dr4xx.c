@@ -164,11 +164,7 @@ void dr444(void) {
   /* FIXME: This should be accepted as per this DR. */
   int j = (_Alignas(int) int){12}; /* expected-error {{expected expression}} */
 
- /* FIXME: The diagnostic in this case is really bad; moving the specifier to
-  * where the diagnostic recommends causes a different, more inscrutable error
-  * about anonymous structures.
-  */
-  _Alignas(int) struct T { /* expected-warning {{attribute '_Alignas' is ignored, place it after "struct" to apply attribute to type declaration}} */
+  _Alignas(int) struct T { /* expected-warning {{'_Alignas' attribute ignored}} */
     int i;
   };
 
@@ -301,7 +297,7 @@ void dr489(void) {
   switch (i) {
   case (int)0.0f: break;    /* okay, a valid ICE */
 
-  /* FIXME: this should be accepted in C2x and up without a diagnostic, as C23
+  /* FIXME: this should be accepted in C23 and up without a diagnostic, as C23
    * added compound literals to the allowed list of things in an ICE. The
    * diagnostic is correct for C17 and earlier though.
    */
@@ -331,19 +327,13 @@ void dr496(void) {
   struct B { struct A a; };
   struct C { struct A a[1]; };
 
-  /* The standard does not require either of these examples to work, but we
-   * support them just the same. The first one is invalid because it's
-   * referencing a member of a different struct, and the second one is invalid
-   * because it references an array of another struct. Clang calculates the
-   * correct offset to each of those fields.
-   */
-  _Static_assert(__builtin_offsetof(struct B, a.n) == 0, ""); /* expected-warning {{using a member access expression within '__builtin_offsetof' is a Clang extension}} */
+  /* Array access & member access expressions are now valid. */
+  _Static_assert(__builtin_offsetof(struct B, a.n) == 0, "");
   /* First int below is for 'n' and the second int is for 'a[0]'; this presumes
    * there is no padding involved.
    */
-  _Static_assert(__builtin_offsetof(struct B, a.a[1]) == sizeof(int) + sizeof(int), ""); /* expected-warning {{using a member access expression within '__builtin_offsetof' is a Clang extension}}
-                                                                                            expected-warning {{using an array subscript expression within '__builtin_offsetof' is a Clang extension}}
-                                                                                          */
+  _Static_assert(__builtin_offsetof(struct B, a.a[1]) == sizeof(int) + sizeof(int), "");
+
   /* However, we do not support using the -> operator to access a member, even
    * if that would be a valid expression. FIXME: GCC accepts this, perhaps we
    * should as well.
