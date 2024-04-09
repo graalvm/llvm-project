@@ -6736,16 +6736,18 @@ def debug_info_kind_EQ : Joined<["-"], "debug-info-kind=">;
 
 } // let Visibility = [CC1Option, CC1AsOption, FC1Option]
 
+let Visibility = [ClangOption, CC1Option] in {
+
 def Sandbox_EQ : Joined<["-"], "sandbox=">,
-	Flags<[CC1Option]>,
 	Values<"off,swcfi,hwcfi">,
 	NormalizedValuesScope<"CodeGenOptions::SandboxModeEnum">,
 	NormalizedValues<["OFF", "SWCFI", "HWCFI"]>,
 	MarshallingInfoEnum<CodeGenOpts<"SandboxMode">, "OFF">;
 def Sandbox : Flag<["-"], "sandbox">,
-    Flags<[CC1Option]>, Alias<Sandbox_EQ>, AliasArgs<["swcfi"]>;
-def NoSandbox : Flag<["-"], "no-sandbox">,
-    Flags<[CC1Option]>;
+    Alias<Sandbox_EQ>, AliasArgs<["swcfi"]>;
+def NoSandbox : Flag<["-"], "no-sandbox">;
+
+} // let Visibility = [ClangOption, CC1Option]
 
 let Visibility = [CC1Option, CC1AsOption] in {
 
