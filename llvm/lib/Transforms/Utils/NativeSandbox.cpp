@@ -32,7 +32,7 @@ PreservedAnalyses NativeSandboxPass::run(Module &M,
     Type* VoidPtrType = PointerType::getUnqual(Int8Type);
 
     FunctionCallee sandbox_poll_instr = M.getOrInsertFunction("llvm.sandboxpoll", Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
-    FunctionCallee sandbox_cfi_instr = M.getOrInsertFunction("llvm.sandboxcfi", VoidPtrType, Type::getInt32Ty(M.getContext()), VoidPtrType);
+    FunctionCallee sandbox_cfi_instr = M.getOrInsertFunction("llvm.sandboxcfi", VoidPtrType, VoidPtrType);
     
     if (!isIgnoredForPolling(M)) {
         IRBuilder<> Builder(M.getContext());
@@ -69,10 +69,10 @@ static void insertSandboxPoll(Function &F, IRBuilder<> &Builder, LoadInst *poll_
     Builder.CreateCall(sandbox_poll_instr, poll_page_content);
 }
 
-static CallInst* insertSandboxCFI(Function &F, IRBuilder<> &Builder, LoadInst *endbr_content, Value *endbrPtr) {
+static CallInst* insertSandboxCFI(Function &F, IRBuilder<> &Builder, Value *endbrPtr) {
     Module *M = F.getParent();
     Function *sandbox_cfi_instr = M->getFunction("llvm.sandboxcfi");
-    return Builder.CreateCall(sandbox_cfi_instr, { endbr_content, endbrPtr });
+    return Builder.CreateCall(sandbox_cfi_instr, { endbrPtr });
 }
 
 PreservedAnalyses NativeSandboxPass::run(Function &F,
@@ -97,8 +97,7 @@ PreservedAnalyses NativeSandboxPass::run(Function &F,
                 if (CB->isIndirectCall()) {
                     IRBuilder<> Builder(CB);
                    
-                    LoadInst *endbr_content = Builder.CreateLoad(Type::getInt32Ty(F.getContext()), CB->getCalledOperand());    
-                    CallInst *sandbox_cfi_instr_call = insertSandboxCFI(F, Builder, endbr_content, CB->getCalledOperand());
+                    CallInst *sandbox_cfi_instr_call = insertSandboxCFI(F, Builder, CB->getCalledOperand());
                     CB->setCalledOperand(sandbox_cfi_instr_call);
                 }
             }

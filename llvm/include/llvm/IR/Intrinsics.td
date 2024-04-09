@@ -669,7 +669,7 @@ def int_sandboxpoll  : Intrinsic<[],
                            // [IntrArgMemOnly, IntrWillReturn, IntrNoFree, IntrNoCallback, NoCapture<ArgIndex<0>>]>;
 
 def int_sandboxcfi  : Intrinsic<[llvm_anyptr_ty],
-                            [llvm_i32_ty, llvm_anyptr_ty],
+                            [llvm_anyptr_ty],
                            // [IntrWillReturn, IntrNoCallback]>;
                            // [llvm_anyptr_ty],
                             [IntrArgMemOnly, IntrWillReturn, IntrNoFree, IntrNoCallback, NoCapture<ArgIndex<1>>]>;
