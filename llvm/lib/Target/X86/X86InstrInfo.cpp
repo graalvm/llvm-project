@@ -7298,7 +7298,7 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   // For CPUs that favor the register form of a call or push,
   // do not fold loads into calls or pushes, unless optimizing for size
   // aggressively.
-  if (isSlowTwoMemOps && !MF.getFunction().hasMinSize() &&
+  if (((isSlowTwoMemOps && !MF.getFunction().hasMinSize()) || isSandboxMode()) &&
       (MI.getOpcode() == X86::CALL32r || MI.getOpcode() == X86::CALL64r ||
        MI.getOpcode() == X86::PUSH16r || MI.getOpcode() == X86::PUSH32r ||
        MI.getOpcode() == X86::PUSH64r))
@@ -7363,10 +7363,6 @@ MachineInstr *X86InstrInfo::foldMemoryOperandImpl(
   }
 
   if (I != nullptr) {
-    bool isNoSandbox = I->Flags & TB_NO_SANDBOX;
-    if (isNoSandbox && isSandboxMode())
-        return nullptr;
-
     unsigned Opcode = I->DstOp;
     bool FoldedLoad =
         isTwoAddrFold || (OpNum == 0 && I->Flags & TB_FOLDED_LOAD) || OpNum > 0;
