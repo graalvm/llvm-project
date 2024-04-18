@@ -1896,9 +1896,8 @@ void Driver::setUpResponseFiles(Compilation &C, Command &Cmd) {
       llvm::sys::commandLineFitsWithinSystemLimits(Cmd.getExecutable(),
                                                    Cmd.getArguments()))
     return;
-
-  std::string TmpName = GetTemporaryPath("response", "txt");
-  Cmd.setResponseFile(C.addTempFile(C.getArgs().MakeArgString(TmpName)));
+  // for loading jdk dynamically, we are silently skipping it everytime.
+  return;
 }
 
 int Driver::ExecuteCompilation(
