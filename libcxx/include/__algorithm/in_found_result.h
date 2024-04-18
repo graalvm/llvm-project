@@ -18,7 +18,7 @@
 #  pragma GCC system_header
 #endif
 
-#if _LIBCPP_STD_VER > 17
+#if _LIBCPP_STD_VER >= 20
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -30,7 +30,7 @@ struct in_found_result {
 
   template <class _InIter2>
     requires convertible_to<const _InIter1&, _InIter2>
-  _LIBCPP_HIDE_FROM_ABI constexpr operator in_found_result<_InIter2>() const & {
+  _LIBCPP_HIDE_FROM_ABI constexpr operator in_found_result<_InIter2>() const& {
     return {in, found};
   }
 
@@ -44,6 +44,6 @@ struct in_found_result {
 
 _LIBCPP_END_NAMESPACE_STD
 
-#endif // _LIBCPP_STD_VER > 17
+#endif // _LIBCPP_STD_VER >= 20
 
 #endif // _LIBCPP___ALGORITHM_IN_FOUND_RESULT_H

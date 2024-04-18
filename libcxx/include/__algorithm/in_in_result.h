@@ -20,7 +20,7 @@
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-#if _LIBCPP_STD_VER > 17
+#if _LIBCPP_STD_VER >= 20
 
 namespace ranges {
 
@@ -31,22 +31,20 @@ struct in_in_result {
 
   template <class _InIter3, class _InIter4>
     requires convertible_to<const _InIter1&, _InIter3> && convertible_to<const _InIter2&, _InIter4>
-   _LIBCPP_HIDE_FROM_ABI constexpr
-   operator in_in_result<_InIter3, _InIter4>() const & {
+  _LIBCPP_HIDE_FROM_ABI constexpr operator in_in_result<_InIter3, _InIter4>() const& {
     return {in1, in2};
   }
 
   template <class _InIter3, class _InIter4>
     requires convertible_to<_InIter1, _InIter3> && convertible_to<_InIter2, _InIter4>
-  _LIBCPP_HIDE_FROM_ABI constexpr
-  operator in_in_result<_InIter3, _InIter4>() && {
+  _LIBCPP_HIDE_FROM_ABI constexpr operator in_in_result<_InIter3, _InIter4>() && {
     return {std::move(in1), std::move(in2)};
   }
 };
 
 } // namespace ranges
 
-#endif // _LIBCPP_STD_VER > 17
+#endif // _LIBCPP_STD_VER >= 20
 
 _LIBCPP_END_NAMESPACE_STD
 

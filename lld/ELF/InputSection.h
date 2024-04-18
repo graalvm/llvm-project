@@ -9,12 +9,14 @@
 #ifndef LLD_ELF_INPUT_SECTION_H
 #define LLD_ELF_INPUT_SECTION_H
 
+#include "Config.h"
 #include "Relocations.h"
 #include "lld/Common/CommonLinkerContext.h"
 #include "lld/Common/LLVM.h"
 #include "lld/Common/Memory.h"
 #include "llvm/ADT/CachedHashString.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Object/ELF.h"
 #include "llvm/Support/Compiler.h"
@@ -137,7 +139,7 @@ public:
   // Used by --optimize-bb-jumps and RISC-V linker relaxation temporarily to
   // indicate the number of bytes which is not counted in the size. This should
   // be reset to zero after uses.
-  uint16_t bytesDropped = 0;
+  uint32_t bytesDropped = 0;
 
   mutable bool compressed = false;
 
@@ -188,14 +190,17 @@ public:
 
   InputSection *getLinkOrderDep() const;
 
-  // Get the function symbol that encloses this offset from within the
-  // section.
-  Defined *getEnclosingFunction(uint64_t offset);
+  // Get a symbol that encloses this offset from within the section. If type is
+  // not zero, return a symbol with the specified type.
+  Defined *getEnclosingSymbol(uint64_t offset, uint8_t type = 0) const;
+  Defined *getEnclosingFunction(uint64_t offset) const {
+    return getEnclosingSymbol(offset, llvm::ELF::STT_FUNC);
+  }
 
   // Returns a source location string. Used to construct an error message.
-  std::string getLocation(uint64_t offset);
-  std::string getSrcMsg(const Symbol &sym, uint64_t offset);
-  std::string getObjMsg(uint64_t offset);
+  std::string getLocation(uint64_t offset) const;
+  std::string getSrcMsg(const Symbol &sym, uint64_t offset) const;
+  std::string getObjMsg(uint64_t offset) const;
 
   // Each section knows how to relocate itself. These functions apply
   // relocations, assuming that Buf points to this section's copy in
@@ -395,19 +400,21 @@ public:
   static InputSection discarded;
 
 private:
-  template <class ELFT, class RelTy>
-  void copyRelocations(uint8_t *buf, llvm::ArrayRef<RelTy> rels);
+  template <class ELFT, class RelTy> void copyRelocations(uint8_t *buf);
+
+  template <class ELFT, class RelTy, class RelIt>
+  void copyRelocations(uint8_t *buf, llvm::iterator_range<RelIt> rels);
 
   template <class ELFT> void copyShtGroup(uint8_t *buf);
 };
 
-static_assert(sizeof(InputSection) <= 152, "InputSection is too big");
+static_assert(sizeof(InputSection) <= 160, "InputSection is too big");
 
 class SyntheticSection : public InputSection {
 public:
   SyntheticSection(uint64_t flags, uint32_t type, uint32_t addralign,
                    StringRef name)
-      : InputSection(nullptr, flags, type, addralign, {}, name,
+      : InputSection(ctx.internalFile, flags, type, addralign, {}, name,
                      InputSectionBase::Synthetic) {}
 
   virtual ~SyntheticSection() = default;
@@ -426,7 +433,7 @@ public:
 
 inline bool isDebugSection(const InputSectionBase &sec) {
   return (sec.flags & llvm::ELF::SHF_ALLOC) == 0 &&
-         sec.name.startswith(".debug");
+         sec.name.starts_with(".debug");
 }
 
 // The set of TOC entries (.toc + addend) for which we should not apply
