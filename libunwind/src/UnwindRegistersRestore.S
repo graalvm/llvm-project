@@ -141,7 +141,6 @@ DEFINE_LIBUNWIND_FUNCTION(__libunwind_Registers_x86_64_jumpto)
   jz     __pass_sw_cfi
   int    $3
 __pass_sw_cfi:
-  lfence
   pop    %rax
 #endif
   jmp    *%rcx

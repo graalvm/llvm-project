@@ -158,8 +158,6 @@ bool X86SandboxPollEmitterPass::runOnMachineFunction(
                         }
 
                         BuildMI(MBB, MBBI, DL, TII->get(X86::JCC_1)).addMBB(trapMBB).addImm(X86::COND_NE);
-                        // X86::LFENCE
-                        BuildMI(MBB, MBBI, DL, TII->get(X86::LFENCE));
 
                         ExpectCFIIndirectCall = false;
                     }
