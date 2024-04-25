@@ -130,7 +130,6 @@ DEFINE_LIBUNWIND_FUNCTION(__unw_getcontext)
   mov   (%r11),%eax
   add   $0x05e1f00d,%eax
   jne   __fail_sw_cet
-  lfence
   xorl  %eax, %eax    # return UNW_ESUCCESS
   jmpq  *%r11
 __fail_sw_cet:

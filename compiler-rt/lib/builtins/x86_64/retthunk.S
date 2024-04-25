@@ -10,7 +10,6 @@ DEFINE_COMPILERRT_FUNCTION(__x86_return_thunk)
         mov     (%r11),%ecx
         add     $0x05e1f00d,%ecx  // negated ENDBR64
         jne     1f
-        lfence
         pop     %rcx
         jmpq    *%r11
 1:

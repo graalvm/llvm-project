@@ -1,4 +1,3 @@
-//===- X86_64.cpp ---------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -1084,8 +1083,7 @@ void Sandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
       0x51,                   	                        // push   %rcx
       0x41, 0x8b, 0x0b,             	                // mov    (%r11),%ecx
       0x81, 0xc1, 0x0d, 0xf0, 0xe1, 0x05,               // add    $0x5e1f00d,%ecx
-      0x75, 0x07,                	                // jne    1b <trap>
-      0x0f, 0xae, 0xe8,                                 // lfence
+      0x75, 0x04,                	                // jne    1b <trap>
       0x59,                   	                        // pop    %rcx
       0x41, 0xff, 0xe3,             	                // jmpq   *%r11
       0xcc,                   	                        // int3   
