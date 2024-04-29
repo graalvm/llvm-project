@@ -1896,7 +1896,9 @@ void Driver::setUpResponseFiles(Compilation &C, Command &Cmd) {
       llvm::sys::commandLineFitsWithinSystemLimits(Cmd.getExecutable(),
                                                    Cmd.getArguments()))
     return;
-  // for loading jdk dynamically, we are silently skipping it everytime.
+  // When loading shared jdk libraries dynamically within graalos via mx jck,
+  // the creation of the response file is not permitted. This is temporarily  
+  // skipped until file creation is enabled.
   return;
 }
 
