@@ -4750,9 +4750,13 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString("-mfunction-return=thunk-extern"));
         CmdArgs.push_back(Args.MakeArgString("-mllvm"));
         CmdArgs.push_back(Args.MakeArgString("-sandbox-cfi-mode=swcfi"));
+        CmdArgs.push_back(Args.MakeArgString("-D__SANDBOX_CFI__"));
+        CmdArgs.push_back(Args.MakeArgString("-D__SANDBOX_SWCFI__"));
     } else if (sandboxMode == "hwcfi") {
         CmdArgs.push_back(Args.MakeArgString("-mllvm"));
         CmdArgs.push_back(Args.MakeArgString("-sandbox-cfi-mode=hwcfi"));
+        CmdArgs.push_back(Args.MakeArgString("-D__SANDBOX_CFI__"));
+        CmdArgs.push_back(Args.MakeArgString("-D__SANDBOX_HWCFI__"));
     }
     Args.ClaimAllArgs(options::OPT_Sandbox_EQ);
   }
