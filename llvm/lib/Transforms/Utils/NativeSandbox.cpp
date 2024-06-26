@@ -6,6 +6,7 @@
 #include "llvm/Support/CommandLine.h"
 
 #include "llvm/ADT/Statistic.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/InstrTypes.h"
@@ -17,7 +18,7 @@ using namespace llvm;
 cl::opt<bool> ThreadWatchDog ("sandbox-thread-watchdog", cl::desc("Enable native sandbox thread watchdog"), cl::init(false));
 
 static bool isIgnoredForPolling(Module &M) {
-    return !ThreadWatchDog || M.getName().equals("ldso/dynlink.c") || 
+    return !ThreadWatchDog || M.getName().equals("ldso/dynlink.c") ||
         M.getName().equals("src/env/__init_tls.c");
 }
 
@@ -33,7 +34,7 @@ PreservedAnalyses NativeSandboxPass::run(Module &M,
 
     FunctionCallee sandbox_poll_instr = M.getOrInsertFunction("llvm.sandboxpoll", Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
     FunctionCallee sandbox_cfi_instr = M.getOrInsertFunction("llvm.sandboxcfi", VoidPtrType, VoidPtrType);
-    
+
     if (!isIgnoredForPolling(M)) {
         IRBuilder<> Builder(M.getContext());
 
@@ -49,7 +50,7 @@ PreservedAnalyses NativeSandboxPass::run(Module &M,
     }
 
     return PreservedAnalyses::all();
-} 
+}
 
 static LoadInst * loadPollPageAddr(Function &F, IRBuilder<> &poll_builder) {
     Module *M = F.getParent();
@@ -75,10 +76,26 @@ static CallInst* insertSandboxCFI(Function &F, IRBuilder<> &Builder, Value *endb
     return Builder.CreateCall(sandbox_cfi_instr, { endbrPtr });
 }
 
+static bool callNeedsSwcfi(CallBase *CB, Function &F) {
+    if (CB->isIndirectCall())
+        return true;
+    if (auto *C = dyn_cast<Constant>(CB->getCalledOperand())) {
+        if (C->isManifestConstant()) {
+            // direct call to constant absolute address
+            // - probably an attempt to manually jump into vsyscall or non-relocatable code
+            // - not of much use, but let's still generate valid SWCFI code (note that the purpose of this is just
+            //   to satisfy the SWCFI requirements statically - this will fail at runtime - at least for vsyscall)
+            F.getContext().diagnose(DiagnosticInfoUnsupported(F, "call to hardcoded address", CB->getDebugLoc(), DS_Warning));
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
 PreservedAnalyses NativeSandboxPass::run(Function &F,
         FunctionAnalysisManager &AM) {
     LoadInst *poll_page_addr = NULL;
-    int brCnt = 0;
     bool ignoredForPolling = isIgnoredForPolling(*F.getParent()) || isIgnoredForPolling(F);
 
     for (BasicBlock &B : F) {
@@ -87,30 +104,45 @@ PreservedAnalyses NativeSandboxPass::run(Function &F,
             IRBuilder<> poll_builder(&B);
             poll_builder.SetInsertPoint(&B, B.begin());
             poll_page_addr = loadPollPageAddr(F, poll_builder);
-        } 
+        }
 
         for (Instruction &I: B) {
             if (auto *CB = dyn_cast<CallBase>(&I)) {
                 // We know we've encountered some kind of call instruction (call,
                 // invoke, or callbr), so we need to determine if it's a call to
                 // the function pointed to by m_func or not.
-                if (CB->isIndirectCall()) {
+                if (callNeedsSwcfi(CB, F)) {
                     IRBuilder<> Builder(CB);
-                   
+
                     CallInst *sandbox_cfi_instr_call = insertSandboxCFI(F, Builder, CB->getCalledOperand());
                     CB->setCalledOperand(sandbox_cfi_instr_call);
                 }
             }
 
-           if (auto *BR = dyn_cast<BranchInst>(&I)) {
+            if (auto *IB = dyn_cast<IndirectBrInst>(&I)) {
+                // indirect branch instruction - probably computed goto
+
+                IRBuilder<> Builder(IB);
+
+                CallInst *sandbox_cfi_instr_call = insertSandboxCFI(F, Builder, IB->getAddress());
+                IB->setAddress(sandbox_cfi_instr_call);
+
+                if (!ignoredForPolling) {
+                    IRBuilder<> Builder(IB);
+                    LoadInst *poll_page_content = Builder.CreateLoad(Type::getInt32Ty(F.getContext()), poll_page_addr);
+                    insertSandboxPoll(F, Builder, poll_page_content);
+                }
+            }
+
+            if (auto *BR = dyn_cast<BranchInst>(&I)) {
                 if (!ignoredForPolling) {
                     IRBuilder<> Builder(BR);
                     LoadInst *poll_page_content = Builder.CreateLoad(Type::getInt32Ty(F.getContext()), poll_page_addr);
                     insertSandboxPoll(F, Builder, poll_page_content);
-                } 
+                }
             }
         }
-    }      
+    }
     return PreservedAnalyses::all();
 }
 

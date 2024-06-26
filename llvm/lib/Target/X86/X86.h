@@ -166,7 +166,7 @@ FunctionPass *createX86LoadValueInjectionRetHardeningPass();
 FunctionPass *createX86SpeculativeLoadHardeningPass();
 FunctionPass *createX86SpeculativeExecutionSideEffectSuppression();
 FunctionPass *createX86ArgumentStackSlotPass();
-FunctionPass *createX86SandboxPollEmitterPass();
+FunctionPass *createX86SandboxPass();
 
 void initializeCompressEVEXPassPass(PassRegistry &);
 void initializeFPSPass(PassRegistry &);
@@ -200,7 +200,7 @@ void initializeX86ReturnThunksPass(PassRegistry &);
 void initializeX86SpeculativeExecutionSideEffectSuppressionPass(PassRegistry &);
 void initializeX86SpeculativeLoadHardeningPassPass(PassRegistry &);
 void initializeX86TileConfigPass(PassRegistry &);
-void initializeX86SandboxPollEmitterPassPass(PassRegistry &);
+void initializeX86SandboxPassPass(PassRegistry &);
 
 namespace X86AS {
 enum : unsigned {
