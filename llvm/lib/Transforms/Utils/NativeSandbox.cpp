@@ -33,7 +33,7 @@ PreservedAnalyses NativeSandboxPass::run(Module &M,
     Type* VoidPtrType = PointerType::getUnqual(Int8Type);
 
     FunctionCallee sandbox_poll_instr = M.getOrInsertFunction("llvm.sandboxpoll", Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
-    FunctionCallee sandbox_cfi_instr = M.getOrInsertFunction("llvm.sandboxcfi", VoidPtrType, VoidPtrType);
+    FunctionCallee sandbox_cfi_instr = M.getOrInsertFunction("llvm.sandboxcfi.p0.p0", VoidPtrType, VoidPtrType);
 
     if (!isIgnoredForPolling(M)) {
         IRBuilder<> Builder(M.getContext());
@@ -72,7 +72,7 @@ static void insertSandboxPoll(Function &F, IRBuilder<> &Builder, LoadInst *poll_
 
 static CallInst* insertSandboxCFI(Function &F, IRBuilder<> &Builder, Value *endbrPtr) {
     Module *M = F.getParent();
-    Function *sandbox_cfi_instr = M->getFunction("llvm.sandboxcfi");
+    Function *sandbox_cfi_instr = M->getFunction("llvm.sandboxcfi.p0.p0");
     return Builder.CreateCall(sandbox_cfi_instr, { endbrPtr });
 }
 

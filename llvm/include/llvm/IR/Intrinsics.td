@@ -991,7 +991,7 @@ def int_sandboxcfi  : Intrinsic<[llvm_anyptr_ty],
                             [llvm_anyptr_ty],
                            // [IntrWillReturn, IntrNoCallback]>;
                            // [llvm_anyptr_ty],
-                            [IntrArgMemOnly, IntrWillReturn, IntrNoFree, IntrNoCallback, NoCapture<ArgIndex<1>>]>;
+                            [IntrArgMemOnly, IntrWillReturn, IntrNoFree, IntrNoCallback, NoCapture<ArgIndex<0>>]>;
 
 
 // Memset version that is guaranteed to be inlined.
