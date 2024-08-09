@@ -551,6 +551,9 @@ public:
 
   // For any checks or cleanups at the end of parsing.
   virtual void onEndOfFile() {}
+
+  virtual ParseStatus parseRawInstructions(std::vector<std::pair<const MCExpr *, SMLoc>>&) { return ParseStatus::NoMatch; }
+
 };
 
 } // end namespace llvm

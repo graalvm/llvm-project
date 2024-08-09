@@ -60,6 +60,18 @@ static cl::opt<SandboxModeEnum> SandboxCFIMode("sandbox-cfi-mode",
             ),
         cl::init(SandboxModeEnum::OFF));
 
+bool isSandboxCFI() {
+	return SandboxCFIMode == SandboxModeEnum::HWCFI || SandboxCFIMode == SandboxModeEnum::SWCFI;
+}
+
+bool isSandboxHWCFI() {
+	return SandboxCFIMode == SandboxModeEnum::HWCFI;
+}
+
+bool isSandboxSWCFI() {
+	return SandboxCFIMode == SandboxModeEnum::SWCFI;
+}
+
 namespace {
 
     class X86SandboxPass : public MachineFunctionPass {

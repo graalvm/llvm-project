@@ -8407,6 +8407,20 @@ void ClangAs::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString(Flags));
   }
 
+
+  if (const Arg *A = Args.getLastArg(options::OPT_Sandbox_EQ)) {
+    StringRef sandboxMode = A->getValue();
+    if (sandboxMode == "swcfi") {
+        CmdArgs.push_back(Args.MakeArgString("-mllvm"));
+        CmdArgs.push_back(Args.MakeArgString("-sandbox-cfi-mode=swcfi"));
+    } else if (sandboxMode == "hwcfi") {
+        CmdArgs.push_back(Args.MakeArgString("-mllvm"));
+        CmdArgs.push_back(Args.MakeArgString("-sandbox-cfi-mode=hwcfi"));
+    }
+    Args.ClaimAllArgs(options::OPT_Sandbox_EQ);
+  }
+
+
   // FIXME: Add -static support, once we have it.
 
   // Add target specific flags.

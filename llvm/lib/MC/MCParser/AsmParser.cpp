@@ -567,7 +567,9 @@ private:
   bool parseDirectiveAscii(StringRef IDVal, bool ZeroTerminated);
   bool parseDirectiveReloc(SMLoc DirectiveLoc); // ".reloc"
   bool parseDirectiveValue(StringRef IDVal,
-                           unsigned Size);       // ".byte", ".long", ...
+                           unsigned Size,
+                           function_ref<ParseStatus(std::vector<std::pair<const MCExpr *, SMLoc>>&)> altEmitter = [](auto a) -> ParseStatus { return ParseStatus::NoMatch; });       // ".byte", ".long", ...
+  
   bool parseDirectiveOctaValue(StringRef IDVal); // ".octa", ...
   bool parseDirectiveRealValue(StringRef IDVal,
                                const fltSemantics &); // ".single", ...
@@ -2037,7 +2039,17 @@ bool AsmParser::parseStatement(ParseStatementInfo &Info,
     case DK_ASCIZ:
     case DK_STRING:
       return parseDirectiveAscii(IDVal, true);
-    case DK_BYTE:
+    case DK_BYTE: {
+      const MCSection *Section = getStreamer().getCurrentSectionOnly();
+      //bool matches = false;
+      if (Section && Section->hasInstructions()) {
+        return parseDirectiveValue(IDVal, 1, [&](auto Values) -> ParseStatus {
+          return getTargetParser().parseRawInstructions(Values);
+        });
+      } else {
+        return parseDirectiveValue(IDVal, 1);
+      }
+    }
     case DK_DC_B:
       return parseDirectiveValue(IDVal, 1);
     case DK_DC:
@@ -3183,26 +3195,44 @@ bool AsmParser::parseDirectiveReloc(SMLoc DirectiveLoc) {
 
 /// parseDirectiveValue
 ///  ::= (.byte | .short | ... ) [ expression (, expression)* ]
-bool AsmParser::parseDirectiveValue(StringRef IDVal, unsigned Size) {
+bool AsmParser::parseDirectiveValue(StringRef IDVal, unsigned Size, function_ref<ParseStatus(std::vector<std::pair<const MCExpr *, SMLoc>>&)> altEmitter) {
+  std::vector<std::pair<const MCExpr *, SMLoc>> Values;
   auto parseOp = [&]() -> bool {
     const MCExpr *Value;
     SMLoc ExprLoc = getLexer().getLoc();
     if (checkForValidSection() || parseExpression(Value))
       return true;
-    // Special case constant expressions to match code generator.
-    if (const MCConstantExpr *MCE = dyn_cast<MCConstantExpr>(Value)) {
-      assert(Size <= 8 && "Invalid size");
-      uint64_t IntValue = MCE->getValue();
-      if (!isUIntN(8 * Size, IntValue) && !isIntN(8 * Size, IntValue))
-        return Error(ExprLoc, "out of range literal value");
-      getStreamer().emitIntValue(IntValue, Size);
-    } else
-      getStreamer().emitValue(Value, Size, ExprLoc);
+    Values.push_back({Value, ExprLoc});
     return false;
   };
 
-  return parseMany(parseOp);
+  bool Res = parseMany(parseOp);
+
+  if (!Res) {
+    ParseStatus PS = altEmitter(Values);
+    if (PS.isFailure()) {
+      return true;
+    } else if (PS.isSuccess()) {
+      return false;
+    }
+    // Fall through when PS.isNoMatch();
+  }
+
+  for (auto Value : Values) {
+    // Special case constant expressions to match code generator.
+    if (const MCConstantExpr *MCE = dyn_cast<MCConstantExpr>(Value.first)) {
+      assert(Size <= 8 && "Invalid size");
+      uint64_t IntValue = MCE->getValue();
+      if (!isUIntN(8 * Size, IntValue) && !isIntN(8 * Size, IntValue))
+        return Error(Value.second, "out of range literal value");
+      getStreamer().emitIntValue(IntValue, Size);
+    } else
+      getStreamer().emitValue(Value.first, Size, Value.second);
+  }
+  
+  return Res;
 }
+
 
 static bool parseHexOcta(AsmParser &Asm, uint64_t &hi, uint64_t &lo) {
   if (Asm.getTok().isNot(AsmToken::Integer) &&
