@@ -1029,6 +1029,10 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
     MPM.addPass(VerifierPass());
 
   if (CodeGenOpts.SandboxMode) {
+    if (!TheModule->getModuleFlag("SandboxMode"))
+        TheModule->addModuleFlag(llvm::Module::Error, "SandboxMode",
+                                 CodeGenOpts.SandboxMode);
+      
     MPM.addPass(NativeSandboxPass());
     MPM.addPass(createModuleToFunctionPassAdaptor(NativeSandboxPass()));
   }
