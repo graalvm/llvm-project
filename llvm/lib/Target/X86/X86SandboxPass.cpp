@@ -37,6 +37,8 @@
 #include "llvm/CodeGen/ReachingDefAnalysis.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/MC/MCInstrInfo.h"
 
 #define VERIFY_SANDBOX
 
@@ -95,6 +97,37 @@ namespace {
 
 char X86SandboxPass::ID = 0;
 
+static bool isTailCall(const MachineInstr &MI) {
+  unsigned Opc = MI.getOpcode();
+  return Opc == X86::TAILJMPr || Opc == X86::TAILJMPm ||
+         Opc == X86::TAILJMPr64 || Opc == X86::TAILJMPm64 ||
+         Opc == X86::TCRETURNri || Opc == X86::TCRETURNmi ||
+         Opc == X86::TCRETURNri64 || Opc == X86::TCRETURNmi64 ||
+         Opc == X86::TAILJMPr64_REX || Opc == X86::TAILJMPm64_REX;
+}
+
+static bool isNoTrack(const MachineInstr &MI) {
+    // TODO: (cosbas) this is a temporary fix, the better solution is to track the jump locations and insert 
+    // endbr64 instructions  
+    return ((MI.getDesc().TSFlags & X86II::NOTRACK) || (MI.getDesc().Flags & X86::IP_HAS_NOTRACK)) && 
+            !isTailCall(MI); // at least some tail calls (TAILJMPr64) have the IP_HAS_NOTRACK flag set 
+}
+
+// adapted from llvm/lib/Target/X86/MCTargetDesc/X86AsmBackend.cpp
+/// Check if the instruction uses RIP relative addressing.
+static bool isRIPRelative(const MachineInstr &MI) {
+  unsigned Opcode = MI.getOpcode();
+  const MCInstrDesc &Desc = MI.getDesc();
+  uint64_t TSFlags = Desc.TSFlags;
+  unsigned CurOp = X86II::getOperandBias(Desc);
+  int MemoryOperand = X86II::getMemoryOperandNo(TSFlags);
+  if (MemoryOperand < 0)
+    return false;
+  unsigned BaseRegNum = MemoryOperand + CurOp + X86::AddrBaseReg;
+  unsigned BaseReg = MI.getOperand(BaseRegNum).getReg();
+  return (BaseReg == X86::RIP);
+}
+
 static bool isIndirectCallOrBranch(MachineInstr &MI) {
     if (MI.getDesc().isCall()) {
         auto &&op = MI.getOperand(0);
@@ -108,7 +141,7 @@ static bool isIndirectCallOrBranch(MachineInstr &MI) {
         else
             errs() << "unexpected call target operand type " << op << '\n', std::abort();
     }
-    if (MI.getDesc().isIndirectBranch()) {
+    if (MI.getDesc().isIndirectBranch() || isTailCall(MI)) {
         auto &&op = MI.getOperand(0);
         if (!op.isReg())
             errs() << "unexpected branch target operand type " << op << '\n', std::abort();
@@ -123,11 +156,13 @@ static bool isIndirectCallOrBranch(MachineInstr &MI) {
 // There seems to be no way to detect a spill reload 100% reliably, but a rough approximation should be enough for
 // the purpose of an assertion. If the instruction looks like a spill reload, assume it is and pass.
 static bool mayBeSpilledAddrReload(MachineInstr &MI) {
-    if (MI.getOpcode() != X86::MOV64rm) // 64-bit mov from memory to register
+    if (MI.getOpcode() != X86::MOV64rm) { // 64-bit mov from memory to register
         return false;
+    }
     auto mo = MI.memoperands();
-    if (mo.size() != 1) // should be implied by the opcode but make sure
+    if (mo.size() != 1) { // should be implied by the opcode but make sure
         return false;
+    }
     // if the memory operand was created for InlineSpiller::insertReload, it is a FixedStackPseudoSourceValue
     const PseudoSourceValue *PVal = mo[0]->getPseudoValue();
     return PVal && PVal->kind() == PseudoSourceValue::FixedStack;
@@ -171,7 +206,13 @@ bool X86SandboxPass::runOnMachineFunction(
 
                     for (auto *defMI : defMIs) {
                         if (defMI->getOpcode() != X86::X86_sandboxcfi && !mayBeSpilledAddrReload(*defMI)) {
+                            errs() << "------------------------------------[ X86SandboxPass ]------------------------------------\n";
+                            errs() << MF.getName() << "\n";
                             errs() << "indirect call/jump instruction uses value not passed through X86_sandboxcfi\n";
+                            MI.getDebugLoc().print(errs());
+                            errs() << "\n";
+                            defMI->print(errs());
+                            errs() << "------------------------------------------------------------------------------------------\n";
                             std::abort();
                         }
                     }
@@ -194,6 +235,7 @@ bool X86SandboxPass::runOnMachineFunction(
                         .addReg(0)             // Segment
                         ;
 
+                    // outs() << "[X86] [SandboxPass] :" << MF.getName() << "\n";
                     BuildMI(MBB, MBBI, DL, TII->get(X86::ADD32ri), TargetReg)
                         .addReg(TargetReg)
                         .addImm(0x05e1f00d); // -ENDBR64
