@@ -1285,12 +1285,17 @@ public:
                         SMLoc NameLoc, OperandVector &Operands) override;
 
   bool ParseDirective(AsmToken DirectiveID) override;
+
+  ParseStatus parseRawInstructions(std::vector<std::pair<const MCExpr *, SMLoc>>&) override;
 };
 } // end anonymous namespace
 
 #define GET_REGISTER_MATCHER
 #define GET_SUBTARGET_FEATURE_NAME
 #include "X86GenAsmMatcher.inc"
+
+bool isSandboxCFI();
+bool isSandboxSWCFI();
 
 static bool CheckBaseRegAndIndexRegAndScale(unsigned BaseReg, unsigned IndexReg,
                                             unsigned Scale, bool Is64BitMode,
@@ -3711,6 +3716,27 @@ bool X86AsmParser::processInstruction(MCInst &Inst, const OperandVector &Ops) {
     Inst.setOpcode(X86::INT3);
     return true;
   }
+  case X86::CLFLUSH: if (isSandboxCFI()) {
+    Inst.clear();
+    Inst.setOpcode(X86::HLT);
+    return true;
+  } else return false;
+  case X86::RET64: if (isSandboxSWCFI()) {
+    StringRef RetThunkSym;
+    RetThunkSym = StringRef("__x86_return_thunk");
+    MCSymbol *Sym = this->getContext().lookupSymbol(RetThunkSym);
+    if (!Sym) {
+	Sym = this->getContext().getOrCreateSymbol(RetThunkSym);
+    	Sym->setExternal(true);
+    	getParser().getStreamer().emitSymbolAttribute(Sym, MCSA_Extern);
+    }
+
+    MCOperand Op = MCOperand::createExpr(MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, this->getContext()));
+    Inst.clear();
+    Inst.setOpcode(X86::JMP_1);
+    Inst.addOperand(Op);
+    return true;
+  } else return false;
   }
 }
 
@@ -3928,6 +3954,15 @@ void X86AsmParser::emitInstruction(MCInst &Inst, OperandVector &Operands,
     applyLVICFIMitigation(Inst, Out);
 
   Out.emitInstruction(Inst, getSTI());
+
+  if (isSandboxSWCFI()) {
+     const MCInstrDesc &MCID = MII.get(Inst.getOpcode());
+     if (MCID.isCall()) {
+        MCInst EndbrInst;
+        EndbrInst.setOpcode(X86::ENDBR64);
+        Out.emitInstruction(EndbrInst, getSTI());
+     }
+  }
 
   if (LVIInlineAsmHardening &&
       getSTI().hasFeature(X86::FeatureLVILoadHardening))
@@ -4246,12 +4281,12 @@ bool X86AsmParser::MatchAndEmitATTInstruction(SMLoc IDLoc, unsigned &Opcode,
       X86Operand &Operand = (X86Operand &)*Operands[ErrorInfo];
       if (Operand.getStartLoc().isValid()) {
         SMRange OperandRange = Operand.getLocRange();
-        return Error(Operand.getStartLoc(), "invalid operand for instruction",
+        return Error(Operand.getStartLoc(), "invalid operand for instruction-1",
                      OperandRange, MatchingInlineAsm);
       }
     }
 
-    return Error(IDLoc, "invalid operand for instruction", EmptyRange,
+    return Error(IDLoc, "invalid operand for instruction-2", EmptyRange,
                  MatchingInlineAsm);
   }
 
@@ -4272,7 +4307,7 @@ bool X86AsmParser::MatchAndEmitATTInstruction(SMLoc IDLoc, unsigned &Opcode,
   // If one instruction matched with an invalid operand, report this as an
   // operand failure.
   if (llvm::count(Match, Match_InvalidOperand) == 1) {
-    return Error(IDLoc, "invalid operand for instruction", EmptyRange,
+    return Error(IDLoc, "invalid operand for instruction-3", EmptyRange,
                  MatchingInlineAsm);
   }
 
@@ -4481,7 +4516,7 @@ bool X86AsmParser::MatchAndEmitIntelInstruction(SMLoc IDLoc, unsigned &Opcode,
   // If one instruction matched with an invalid operand, report this as an
   // operand failure.
   if (llvm::count(Match, Match_InvalidOperand) == 1) {
-    return Error(IDLoc, "invalid operand for instruction", EmptyRange,
+    return Error(IDLoc, "invalid operand for instruction-0", EmptyRange,
                  MatchingInlineAsm);
   }
 
@@ -4867,6 +4902,46 @@ bool X86AsmParser::parseDirectiveSEHPushFrame(SMLoc Loc) {
   getParser().Lex();
   getStreamer().emitWinCFIPushFrame(Code, Loc);
   return false;
+}
+
+bool matchDirectiveValues(std::vector<std::pair<const MCExpr *, SMLoc>> & Values, std::vector<uint64_t> To, unsigned Size) {
+  if (To.size() != Values.size()) {
+    return false;
+  }
+
+  for (unsigned int i = 0; i < Values.size(); i++) {
+    auto Value = Values[i];
+    if (const MCConstantExpr *MCE = dyn_cast<MCConstantExpr>(Value.first)) {
+      uint64_t IntValue = MCE->getValue();
+      if (!isUIntN(8 * Size, IntValue) && !isIntN(8 * Size, IntValue)) {
+        return false;
+      }
+      if (To[i] != IntValue) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+ParseStatus X86AsmParser::parseRawInstructions(std::vector<std::pair<const MCExpr *, SMLoc>> &Values) {
+  // OpenSSL asm files on AMD encode ret instructions as byte string "".byte 0xf3, 0xc3", i.e. "repz ret"
+  // (an obsolete branch predictor optimization).
+  if (isSandboxSWCFI() && matchDirectiveValues(Values, { 0xf3, 0xc3 }, 1)) {
+    MCInst Inst;
+    SmallVector<std::unique_ptr<MCParsedAsmOperand>, 8> Operands;
+    Inst.setOpcode(X86::RET64);
+    while (processInstruction(Inst, Operands))
+        ;
+    emitInstruction(Inst, Operands, getStreamer());
+
+    return ParseStatus::Success;
+  } else {
+    return ParseStatus::NoMatch;
+  }
 }
 
 // Force static initialization.
