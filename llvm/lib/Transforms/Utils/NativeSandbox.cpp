@@ -88,6 +88,11 @@ static bool callNeedsSwcfi(CallBase *CB, Function &F) {
             F.getContext().diagnose(DiagnosticInfoUnsupported(F, "call to hardcoded address", CB->getDebugLoc(), DS_Warning));
             return true;
         }
+        if (auto *C2 = dyn_cast<Function>(CB->getCalledOperand())) {
+            // Calls to non-lazily bound external functions need SW-CFI too, as they are rendered as calls, where
+            // the target address is read from a RIP pointer (usually read from GOT)
+            return C2->getAttributes().hasFnAttr(llvm::Attribute::NonLazyBind);
+        }
         return false;
     }
     return false;
