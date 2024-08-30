@@ -590,6 +590,12 @@ template <class ELFT> void elf::createSyntheticSections() {
   add(*in.shStrTab);
   if (in.strTab)
     add(*in.strTab);
+
+  if (config->SandboxMode) {
+    in.graalos = std::make_unique<GraalOSSection>();
+    add(*in.graalos);
+  }
+
 }
 
 // The main function of the writer.

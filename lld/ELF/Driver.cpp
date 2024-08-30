@@ -2990,9 +2990,6 @@ void LinkerDriver::link(opt::InputArgList &args) {
   if (!config->relocatable)
     ctx.inputSections.push_back(createCommentSection());
 
-  if (config->SandboxMode)
-    ctx.inputSections.push_back(createSandboxSection());
-
   // Split SHF_MERGE and .eh_frame sections into pieces in preparation for garbage collection.
   invokeELFT(splitSections,);
 

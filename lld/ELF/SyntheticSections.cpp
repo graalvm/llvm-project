@@ -96,15 +96,6 @@ static ArrayRef<uint8_t> getSandboxInfo() {
   return {(const uint8_t *)s.data(), s.size() + 1};
 }
 
-
-MergeInputSection *elf::createSandboxSection() {
-  auto *sec = make<MergeInputSection>(SHF_MERGE | SHF_STRINGS, SHT_PROGBITS, 1,
-                                      getSandboxInfo(), ".sandbox");
-  sec->splitIntoPieces();
-  return sec;
-}
-
-
 // .MIPS.abiflags section.
 template <class ELFT>
 MipsAbiFlagsSection<ELFT>::MipsAbiFlagsSection(Elf_Mips_ABIFlags flags)
@@ -1561,6 +1552,12 @@ DynamicSection<ELFT>::computeContents() {
 
   if (config->emachine == EM_PPC64)
     addInt(DT_PPC64_OPT, getPPC64TargetInfo()->ppc64DynamicSectionOpt);
+
+  if (config->SandboxMode) {
+    // 0x6000000d is the value of DT_LOOS in musl's elf.h
+    // 0x6000000d + 1 is the value of DT_GRAALOS
+    addInSec(0x6000000d + 1, *in.graalos);
+  }
 
   addInt(DT_NULL, 0);
   return entries;
@@ -3644,6 +3641,21 @@ bool ThunkSection::assignOffsets() {
   bool changed = off != size;
   size = off;
   return changed;
+}
+
+GraalOSSection::GraalOSSection()
+    : SyntheticSection(SHF_ALLOC, SHT_PROGBITS, 4, ".graalos") {
+}
+
+size_t GraalOSSection::getSize() const {
+  return 16;
+}
+
+void GraalOSSection::writeTo(uint8_t *buf) {
+  write32(buf + 0, 0x1);  // GraalOS ELF section record version
+  write32(buf + 4, 0x1);  // toolchain major version
+  write32(buf + 8, 0x0);  // toolchain minor version
+  write32(buf + 12, 0x0); // flags
 }
 
 PPC32Got2Section::PPC32Got2Section()

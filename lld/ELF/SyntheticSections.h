@@ -1155,6 +1155,16 @@ private:
   size_t size = 0;
 };
 
+class GraalOSSection final : public SyntheticSection {
+public:
+  GraalOSSection();
+
+  size_t getSize() const override;
+  void writeTo(uint8_t *buf) override;
+
+private:
+};
+
 // Cortex-M Security Extensions. Prefix for functions that should be exported
 // for the non-secure world.
 const char ACLESESYM_PREFIX[] = "__acle_se_";
@@ -1286,6 +1296,8 @@ private:
 InputSection *createInterpSection();
 MergeInputSection *createCommentSection();
 MergeInputSection *createSandboxSection();
+GraalOSSection *createGraalOSSection();
+
 template <class ELFT> void splitSections();
 void combineEhSections();
 
@@ -1364,6 +1376,7 @@ struct InStruct {
   std::unique_ptr<StringTableSection> strTab;
   std::unique_ptr<SymbolTableBaseSection> symTab;
   std::unique_ptr<SymtabShndxSection> symTabShndx;
+  std::unique_ptr<GraalOSSection> graalos;
 
   void reset();
 };
