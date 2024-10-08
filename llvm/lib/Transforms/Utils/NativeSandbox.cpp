@@ -117,6 +117,9 @@ PreservedAnalyses NativeSandboxPass::run(Function &F,
     LoadInst *poll_page_addr = NULL;
     bool ignoredForPolling = isIgnoredForPolling(*F.getParent()) || isIgnoredForPolling(F);
 
+    // force add the extern return thunk (rustc does not add it for the main stub function)
+    F.addFnAttr(llvm::Attribute::FnRetThunkExtern);
+
     for (BasicBlock &B : F) {
 
         if (!ignoredForPolling && !poll_page_addr) {

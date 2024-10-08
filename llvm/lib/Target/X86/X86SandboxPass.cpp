@@ -97,35 +97,35 @@ namespace {
 
 char X86SandboxPass::ID = 0;
 
-static bool isTailCall(const MachineInstr &MI) {
+static bool isIndirectJumpTailCall(const MachineInstr &MI) {
   unsigned Opc = MI.getOpcode();
-  return Opc == X86::TAILJMPr || Opc == X86::TAILJMPm ||
-         Opc == X86::TAILJMPr64 || Opc == X86::TAILJMPm64 ||
-         Opc == X86::TCRETURNri || Opc == X86::TCRETURNmi ||
-         Opc == X86::TCRETURNri64 || Opc == X86::TCRETURNmi64 ||
-         Opc == X86::TAILJMPr64_REX || Opc == X86::TAILJMPm64_REX;
+  if (Opc == X86::TAILJMPm || Opc == X86::TAILJMPm64 || Opc == X86::TAILJMPm64_REX) {
+        errs() << "------------------------------------[ X86SandboxPass ]------------------------------------\n";
+        errs() << "One of X86::TAILJMPm, X86::TAILJMPm64, X86::TAILJMPm64_REX unsupported machine instructions encountered, opcode: " << Opc << " ()\n";
+        errs() << "------------------------------------------------------------------------------------------\n";
+        std::abort();
+  }
+  return Opc == X86::TAILJMPr || Opc == X86::TAILJMPr64 || Opc == X86::TAILJMPr64_REX;
 }
 
 static bool isNoTrack(const MachineInstr &MI) {
-    // TODO: (cosbas) this is a temporary fix, the better solution is to track the jump locations and insert 
-    // endbr64 instructions  
-    return ((MI.getDesc().TSFlags & X86II::NOTRACK) || (MI.getDesc().Flags & X86::IP_HAS_NOTRACK)) && 
-            !isTailCall(MI); // at least some tail calls (TAILJMPr64) have the IP_HAS_NOTRACK flag set 
+    // utility function: useful during debugging 
+    // checks if the MI has a "notrack" prefix
+    return (MI.getDesc().TSFlags & X86II::NOTRACK) || (MI.getDesc().Flags & X86::IP_HAS_NOTRACK);
 }
 
-// adapted from llvm/lib/Target/X86/MCTargetDesc/X86AsmBackend.cpp
-/// Check if the instruction uses RIP relative addressing.
 static bool isRIPRelative(const MachineInstr &MI) {
-  unsigned Opcode = MI.getOpcode();
-  const MCInstrDesc &Desc = MI.getDesc();
-  uint64_t TSFlags = Desc.TSFlags;
-  unsigned CurOp = X86II::getOperandBias(Desc);
-  int MemoryOperand = X86II::getMemoryOperandNo(TSFlags);
-  if (MemoryOperand < 0)
-    return false;
-  unsigned BaseRegNum = MemoryOperand + CurOp + X86::AddrBaseReg;
-  unsigned BaseReg = MI.getOperand(BaseRegNum).getReg();
-  return (BaseReg == X86::RIP);
+    // utility function: useful during debugging 
+    // check if the MI uses RIP relative addressing.
+    const MCInstrDesc &Desc = MI.getDesc();
+    uint64_t TSFlags = Desc.TSFlags;
+    unsigned CurOp = X86II::getOperandBias(Desc);
+    int MemoryOperand = X86II::getMemoryOperandNo(TSFlags);
+    if (MemoryOperand < 0)
+        return false;
+    unsigned BaseRegNum = MemoryOperand + CurOp + X86::AddrBaseReg;
+    unsigned BaseReg = MI.getOperand(BaseRegNum).getReg();
+    return (BaseReg == X86::RIP);
 }
 
 static bool isIndirectCallOrBranch(MachineInstr &MI) {
@@ -141,7 +141,7 @@ static bool isIndirectCallOrBranch(MachineInstr &MI) {
         else
             errs() << "unexpected call target operand type " << op << '\n', std::abort();
     }
-    if (MI.getDesc().isIndirectBranch() || isTailCall(MI)) {
+    if (MI.getDesc().isIndirectBranch() || isIndirectJumpTailCall(MI)) {
         auto &&op = MI.getOperand(0);
         if (!op.isReg())
             errs() << "unexpected branch target operand type " << op << '\n', std::abort();
