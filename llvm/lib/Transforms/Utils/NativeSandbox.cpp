@@ -30,6 +30,16 @@ static bool isIgnoredForPolling(Function &F) {
     return !ThreadWatchDog;
 }
 
+cl::opt<std::string> TraceNativeSandbox ("trace-native-sandbox", cl::desc("Enable native sandbox pass tracing to stdout"), cl::init(""));
+
+static bool isTraceNativeSandbox(Function &F) {
+    if (!TraceNativeSandbox.empty()) {
+        StringRef predicate = TraceNativeSandbox;
+        return predicate.equals("*") || predicate.starts_with(F.getName());
+    }
+    return false;
+}
+
 PreservedAnalyses NativeSandboxPass::run(Module &M,
         ModuleAnalysisManager &AM) {
 
@@ -81,7 +91,8 @@ static void insertSandboxPoll(Function &F, IRBuilder<> &Builder, LoadInst *poll_
 }
 
 static CallInst* insertSandboxCFI(Function &F, IRBuilder<> &Builder, Value *endbrPtr) {
-    // outs() << "[Native] [SandboxPass] :" << F.getName() << "\n";
+    if (isTraceNativeSandbox(F)) 
+        outs() << "[Native] [SandboxPass] :" << F.getName() << "\n";
     Module *M = F.getParent();
     Function *sandbox_cfi_instr = M->getFunction("llvm.sandboxcfi.p0.p0");
     return Builder.CreateCall(sandbox_cfi_instr, { endbrPtr });

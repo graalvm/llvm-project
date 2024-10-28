@@ -44,6 +44,16 @@
 
 using namespace llvm;
 
+cl::opt<std::string> TraceX86Sandbox ("trace-x86-sandbox", cl::desc("Enable x86 sandbox pass tracing to stdout"), cl::init(""));
+
+static bool isTraceX86Sandbox(MachineFunction &F) {
+    if (!TraceX86Sandbox.empty()) {
+        StringRef predicate = TraceX86Sandbox;
+        return predicate.equals("*") || predicate.starts_with(F.getName());
+    }
+    return false;
+}
+
 #define PASS_KEY "x86-sandbox-pass"
 #define DEBUG_TYPE PASS_KEY
 
@@ -106,26 +116,6 @@ static bool isIndirectJumpTailCall(const MachineInstr &MI) {
         std::abort();
   }
   return Opc == X86::TAILJMPr || Opc == X86::TAILJMPr64 || Opc == X86::TAILJMPr64_REX;
-}
-
-static bool isNoTrack(const MachineInstr &MI) {
-    // utility function: useful during debugging 
-    // checks if the MI has a "notrack" prefix
-    return (MI.getDesc().TSFlags & X86II::NOTRACK) || (MI.getDesc().Flags & X86::IP_HAS_NOTRACK);
-}
-
-static bool isRIPRelative(const MachineInstr &MI) {
-    // utility function: useful during debugging 
-    // check if the MI uses RIP relative addressing.
-    const MCInstrDesc &Desc = MI.getDesc();
-    uint64_t TSFlags = Desc.TSFlags;
-    unsigned CurOp = X86II::getOperandBias(Desc);
-    int MemoryOperand = X86II::getMemoryOperandNo(TSFlags);
-    if (MemoryOperand < 0)
-        return false;
-    unsigned BaseRegNum = MemoryOperand + CurOp + X86::AddrBaseReg;
-    unsigned BaseReg = MI.getOperand(BaseRegNum).getReg();
-    return (BaseReg == X86::RIP);
 }
 
 static bool isIndirectCallOrBranch(MachineInstr &MI) {
@@ -235,7 +225,8 @@ bool X86SandboxPass::runOnMachineFunction(
                         .addReg(0)             // Segment
                         ;
 
-                    // outs() << "[X86] [SandboxPass] :" << MF.getName() << "\n";
+                    if (isTraceX86Sandbox(MF))
+                        outs() << "[X86] [SandboxPass] :" << MF.getName() << "\n";
                     BuildMI(MBB, MBBI, DL, TII->get(X86::ADD32ri), TargetReg)
                         .addReg(TargetReg)
                         .addImm(0x05e1f00d); // -ENDBR64
