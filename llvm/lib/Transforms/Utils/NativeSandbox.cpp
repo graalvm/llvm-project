@@ -11,6 +11,10 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Analysis/MemorySSA.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/IR/Module.h"
 
 
 using namespace llvm;
@@ -26,6 +30,16 @@ static bool isIgnoredForPolling(Function &F) {
     return !ThreadWatchDog;
 }
 
+cl::opt<std::string> TraceNativeSandbox ("trace-native-sandbox", cl::desc("Enable native sandbox pass tracing to stdout"), cl::init(""));
+
+static bool isTraceNativeSandbox(Function &F) {
+    if (!TraceNativeSandbox.empty()) {
+        StringRef predicate = TraceNativeSandbox;
+        return predicate.equals("*") || predicate.starts_with(F.getName());
+    }
+    return false;
+}
+
 PreservedAnalyses NativeSandboxPass::run(Module &M,
         ModuleAnalysisManager &AM) {
 
@@ -33,7 +47,13 @@ PreservedAnalyses NativeSandboxPass::run(Module &M,
     Type* VoidPtrType = PointerType::getUnqual(Int8Type);
 
     FunctionCallee sandbox_poll_instr = M.getOrInsertFunction("llvm.sandboxpoll", Type::getVoidTy(M.getContext()), Type::getInt32Ty(M.getContext()));
-    FunctionCallee sandbox_cfi_instr = M.getOrInsertFunction("llvm.sandboxcfi", VoidPtrType, VoidPtrType);
+    FunctionCallee sandbox_cfi_instr = M.getOrInsertFunction("llvm.sandboxcfi.p0.p0", VoidPtrType, VoidPtrType);
+
+    // [rust] for cases where (some) functions go through GOT
+    // this can end up generating rip relative addressing for indirect calls
+    if (M.getRtLibUseGOT()) {
+        M.setModuleFlag(llvm::Module::ModFlagBehavior::Max, "RtLibUseGOT", 0);
+    }
 
     if (!isIgnoredForPolling(M)) {
         IRBuilder<> Builder(M.getContext());
@@ -71,14 +91,18 @@ static void insertSandboxPoll(Function &F, IRBuilder<> &Builder, LoadInst *poll_
 }
 
 static CallInst* insertSandboxCFI(Function &F, IRBuilder<> &Builder, Value *endbrPtr) {
+    if (isTraceNativeSandbox(F)) 
+        outs() << "[Native] [SandboxPass] :" << F.getName() << "\n";
     Module *M = F.getParent();
-    Function *sandbox_cfi_instr = M->getFunction("llvm.sandboxcfi");
+    Function *sandbox_cfi_instr = M->getFunction("llvm.sandboxcfi.p0.p0");
     return Builder.CreateCall(sandbox_cfi_instr, { endbrPtr });
 }
 
 static bool callNeedsSwcfi(CallBase *CB, Function &F) {
-    if (CB->isIndirectCall())
+    if (CB->isIndirectCall()) {
         return true;
+    }
+
     if (auto *C = dyn_cast<Constant>(CB->getCalledOperand())) {
         if (C->isManifestConstant()) {
             // direct call to constant absolute address
@@ -92,9 +116,10 @@ static bool callNeedsSwcfi(CallBase *CB, Function &F) {
             // Calls to non-lazily bound external functions need SW-CFI too, as they are rendered as calls, where
             // the target address is read from a RIP pointer (usually read from GOT)
             return C2->getAttributes().hasFnAttr(llvm::Attribute::NonLazyBind);
-        }
+        } 
         return false;
     }
+    
     return false;
 }
 
@@ -102,6 +127,9 @@ PreservedAnalyses NativeSandboxPass::run(Function &F,
         FunctionAnalysisManager &AM) {
     LoadInst *poll_page_addr = NULL;
     bool ignoredForPolling = isIgnoredForPolling(*F.getParent()) || isIgnoredForPolling(F);
+
+    // force add the extern return thunk (rustc does not add it for the main stub function)
+    F.addFnAttr(llvm::Attribute::FnRetThunkExtern);
 
     for (BasicBlock &B : F) {
 
@@ -122,6 +150,14 @@ PreservedAnalyses NativeSandboxPass::run(Function &F,
                     CallInst *sandbox_cfi_instr_call = insertSandboxCFI(F, Builder, CB->getCalledOperand());
                     CB->setCalledOperand(sandbox_cfi_instr_call);
                 }
+            }
+
+            if (auto *SWI = dyn_cast<SwitchInst>(&I)) {
+                // [rust] [GR-58158] there is no current way to inject the SandboxCFI for a switch instruction. However, 
+                // switch instructions are not turned into jump tables durign lowering if the "-fno-jump-tables" flag 
+                // is passed (clang) or "-Zno-jump-tables" (rustc). The rustc experimental flag is not 100% supported yet, 
+                // therefore we set the function attribute manually until jump tables are supported in graalos.
+                F.addFnAttr("no-jump-tables", "true");
             }
 
             if (auto *IB = dyn_cast<IndirectBrInst>(&I)) {

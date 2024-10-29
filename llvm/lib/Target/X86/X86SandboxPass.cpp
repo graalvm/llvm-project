@@ -37,10 +37,22 @@
 #include "llvm/CodeGen/ReachingDefAnalysis.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/MC/MCInstrInfo.h"
 
 #define VERIFY_SANDBOX
 
 using namespace llvm;
+
+cl::opt<std::string> TraceX86Sandbox ("trace-x86-sandbox", cl::desc("Enable x86 sandbox pass tracing to stdout"), cl::init(""));
+
+static bool isTraceX86Sandbox(MachineFunction &F) {
+    if (!TraceX86Sandbox.empty()) {
+        StringRef predicate = TraceX86Sandbox;
+        return predicate.equals("*") || predicate.starts_with(F.getName());
+    }
+    return false;
+}
 
 #define PASS_KEY "x86-sandbox-pass"
 #define DEBUG_TYPE PASS_KEY
@@ -95,6 +107,17 @@ namespace {
 
 char X86SandboxPass::ID = 0;
 
+static bool isIndirectJumpTailCall(const MachineInstr &MI) {
+  unsigned Opc = MI.getOpcode();
+  if (Opc == X86::TAILJMPm || Opc == X86::TAILJMPm64 || Opc == X86::TAILJMPm64_REX) {
+        errs() << "------------------------------------[ X86SandboxPass ]------------------------------------\n";
+        errs() << "One of X86::TAILJMPm, X86::TAILJMPm64, X86::TAILJMPm64_REX unsupported machine instructions encountered, opcode: " << Opc << " ()\n";
+        errs() << "------------------------------------------------------------------------------------------\n";
+        std::abort();
+  }
+  return Opc == X86::TAILJMPr || Opc == X86::TAILJMPr64 || Opc == X86::TAILJMPr64_REX;
+}
+
 static bool isIndirectCallOrBranch(MachineInstr &MI) {
     if (MI.getDesc().isCall()) {
         auto &&op = MI.getOperand(0);
@@ -108,7 +131,7 @@ static bool isIndirectCallOrBranch(MachineInstr &MI) {
         else
             errs() << "unexpected call target operand type " << op << '\n', std::abort();
     }
-    if (MI.getDesc().isIndirectBranch()) {
+    if (MI.getDesc().isIndirectBranch() || isIndirectJumpTailCall(MI)) {
         auto &&op = MI.getOperand(0);
         if (!op.isReg())
             errs() << "unexpected branch target operand type " << op << '\n', std::abort();
@@ -123,11 +146,13 @@ static bool isIndirectCallOrBranch(MachineInstr &MI) {
 // There seems to be no way to detect a spill reload 100% reliably, but a rough approximation should be enough for
 // the purpose of an assertion. If the instruction looks like a spill reload, assume it is and pass.
 static bool mayBeSpilledAddrReload(MachineInstr &MI) {
-    if (MI.getOpcode() != X86::MOV64rm) // 64-bit mov from memory to register
+    if (MI.getOpcode() != X86::MOV64rm) { // 64-bit mov from memory to register
         return false;
+    }
     auto mo = MI.memoperands();
-    if (mo.size() != 1) // should be implied by the opcode but make sure
+    if (mo.size() != 1) { // should be implied by the opcode but make sure
         return false;
+    }
     // if the memory operand was created for InlineSpiller::insertReload, it is a FixedStackPseudoSourceValue
     const PseudoSourceValue *PVal = mo[0]->getPseudoValue();
     return PVal && PVal->kind() == PseudoSourceValue::FixedStack;
@@ -171,7 +196,13 @@ bool X86SandboxPass::runOnMachineFunction(
 
                     for (auto *defMI : defMIs) {
                         if (defMI->getOpcode() != X86::X86_sandboxcfi && !mayBeSpilledAddrReload(*defMI)) {
+                            errs() << "------------------------------------[ X86SandboxPass ]------------------------------------\n";
+                            errs() << MF.getName() << "\n";
                             errs() << "indirect call/jump instruction uses value not passed through X86_sandboxcfi\n";
+                            MI.getDebugLoc().print(errs());
+                            errs() << "\n";
+                            defMI->print(errs());
+                            errs() << "------------------------------------------------------------------------------------------\n";
                             std::abort();
                         }
                     }
@@ -194,6 +225,8 @@ bool X86SandboxPass::runOnMachineFunction(
                         .addReg(0)             // Segment
                         ;
 
+                    if (isTraceX86Sandbox(MF))
+                        outs() << "[X86] [SandboxPass] :" << MF.getName() << "\n";
                     BuildMI(MBB, MBBI, DL, TII->get(X86::ADD32ri), TargetReg)
                         .addReg(TargetReg)
                         .addImm(0x05e1f00d); // -ENDBR64

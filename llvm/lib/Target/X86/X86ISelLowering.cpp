@@ -56385,7 +56385,8 @@ SDValue X86TargetLowering::expandIndirectJTBranch(const SDLoc &dl,
                                                   SelectionDAG &DAG) const {
   const Module *M = DAG.getMachineFunction().getMMI().getModule();
   Metadata *IsCFProtectionSupported = M->getModuleFlag("cf-protection-branch");
-  if (IsCFProtectionSupported) {
+  Metadata *IsSandboxMode = M->getModuleFlag("SandboxMode");
+  if (IsCFProtectionSupported && !IsSandboxMode) {
     // In case control-flow branch protection is enabled, we need to add
     // notrack prefix to the indirect branch.
     // In order to do that we create NT_BRIND SDNode.

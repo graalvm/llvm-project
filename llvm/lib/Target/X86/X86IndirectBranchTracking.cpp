@@ -22,6 +22,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineJumpTableInfo.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 
 using namespace llvm;
@@ -118,6 +119,7 @@ bool X86IndirectBranchTrackingPass::runOnMachineFunction(MachineFunction &MF) {
   const Module *M = MF.getMMI().getModule();
   // Check that the cf-protection-branch is enabled.
   Metadata *isCFProtectionSupported = M->getModuleFlag("cf-protection-branch");
+  Metadata *isSandboxMode = M->getModuleFlag("SandboxMode"); 
 
   //  NB: We need to enable IBT in jitted code if JIT compiler is CET
   //  enabled.
@@ -186,5 +188,13 @@ bool X86IndirectBranchTrackingPass::runOnMachineFunction(MachineFunction &MF) {
       }
     }
   }
+
+  // if SandboxMode
+  if (isSandboxMode)
+    if (const MachineJumpTableInfo *JTI = MF.getJumpTableInfo())
+      for (const MachineJumpTableEntry &JTE : JTI->getJumpTables())
+        for (MachineBasicBlock *MBB : JTE.MBBs)
+          Changed |= addENDBR(*MBB, MBB->begin());
+
   return Changed;
 }
