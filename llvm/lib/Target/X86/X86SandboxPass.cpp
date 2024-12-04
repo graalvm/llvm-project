@@ -253,14 +253,9 @@ bool X86SandboxPass::runOnMachineFunction(
                     Modified = true;
                 }
 
-                // Do not insert ENDBR64 after tail calls/jumps
-                if (MI.getDesc().isCall() && !(Opc >= X86::TAILJMPd && Opc <= X86::TAILJMPr64_REX)) {
-                    auto EI = MachineBasicBlock::iterator(MBBI);
-                    EI++;
-                    BuildMI(MBB, EI, DL, TII->get(X86::ENDBR64));
+                // Here, the after-call ENDBR64 used to be inserted. But as it could not capture all calls, the code
+                // was moved to X86MCInstLower.cpp
 
-                    Modified = true;
-                }
             }
 
             switch (Opc) {
