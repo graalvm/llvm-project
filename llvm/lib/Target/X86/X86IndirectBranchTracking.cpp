@@ -119,7 +119,8 @@ bool X86IndirectBranchTrackingPass::runOnMachineFunction(MachineFunction &MF) {
   const Module *M = MF.getMMI().getModule();
   // Check that the cf-protection-branch is enabled.
   Metadata *isCFProtectionSupported = M->getModuleFlag("cf-protection-branch");
-  Metadata *isSandboxMode = M->getModuleFlag("SandboxMode"); 
+  Metadata *isSandboxModeSWCFI = M->getModuleFlag("SandboxModeSWCFI");
+  Metadata *isSandboxModeHWCFI = M->getModuleFlag("SandboxModeHWCFI");
 
   //  NB: We need to enable IBT in jitted code if JIT compiler is CET
   //  enabled.
@@ -190,7 +191,7 @@ bool X86IndirectBranchTrackingPass::runOnMachineFunction(MachineFunction &MF) {
   }
 
   // if SandboxMode
-  if (isSandboxMode)
+  if (isSandboxModeSWCFI || isSandboxModeHWCFI)
     if (const MachineJumpTableInfo *JTI = MF.getJumpTableInfo())
       for (const MachineJumpTableEntry &JTE : JTI->getJumpTables())
         for (MachineBasicBlock *MBB : JTE.MBBs)
