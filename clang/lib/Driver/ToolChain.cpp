@@ -842,15 +842,12 @@ std::string ToolChain::GetLinkerPath(bool *LinkerIsLLD) const {
   if (S) {
     StringRef SM = S->getValue();
     if ((UseLinker != "musl-clang") && (UseLinker != "musl-clang++") && SM != "off") {
-        printf("Forcing LLD linker (instead of %s)\n", UseLinker.data());
-        UseLinker = "lld";
+      if (Args.hasArg(options::OPT_v)) {
+        llvm::outs() << "Forcing LLD linker (instead of " << UseLinker <<  ")\n";
+      }
+      UseLinker = "lld";
     }
   }
-
-//  if ((UseLinker != "musl-clang") && (UseLinker != "musl-clang++") && Args.hasFlag(options::OPT_Sandbox, options::OPT_NoSandbox, false)) {
-//    printf("Forcing LLD linker\n");
-//    UseLinker = "lld";
-//  }
 
   // --ld-path= takes precedence over -fuse-ld= and specifies the executable
   // name. -B, COMPILER_PATH and PATH and consulted if the value does not
