@@ -1204,7 +1204,7 @@ void Sandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
   };
   memcpy(buf, inst, sizeof(inst));
 
-  write32le(buf + 7, sym.getGotPltVA() - pltEntryAddr - 11);
+  write32le(buf + 7, sym.getGotPltVA(ctx) - pltEntryAddr - 11);
 }
 
 // If Intel Indirect Branch Tracking is enabled, we have to emit special PLT
