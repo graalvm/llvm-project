@@ -49,7 +49,7 @@ cl::opt<std::string> TraceX86Sandbox ("trace-x86-sandbox", cl::desc("Enable x86 
 static bool isTraceX86Sandbox(MachineFunction &F) {
     if (!TraceX86Sandbox.empty()) {
         StringRef predicate = TraceX86Sandbox;
-        return predicate.equals("*") || predicate.starts_with(F.getName());
+        return predicate == "*" || predicate.starts_with(F.getName());
     }
     return false;
 }

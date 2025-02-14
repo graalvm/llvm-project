@@ -22,8 +22,8 @@ using namespace llvm;
 cl::opt<bool> ThreadWatchDog ("sandbox-thread-watchdog", cl::desc("Enable native sandbox thread watchdog"), cl::init(false));
 
 static bool isIgnoredForPolling(Module &M) {
-    return !ThreadWatchDog || M.getName().equals("ldso/dynlink.c") ||
-        M.getName().equals("src/env/__init_tls.c");
+    return !ThreadWatchDog || M.getName() == "ldso/dynlink.c" ||
+        M.getName() == "src/env/__init_tls.c";
 }
 
 static bool isIgnoredForPolling(Function &F) {
@@ -35,7 +35,7 @@ cl::opt<std::string> TraceNativeSandbox ("trace-native-sandbox", cl::desc("Enabl
 static bool isTraceNativeSandbox(Function &F) {
     if (!TraceNativeSandbox.empty()) {
         StringRef predicate = TraceNativeSandbox;
-        return predicate.equals("*") || predicate.starts_with(F.getName());
+        return predicate == "*" || predicate.starts_with(F.getName());
     }
     return false;
 }
