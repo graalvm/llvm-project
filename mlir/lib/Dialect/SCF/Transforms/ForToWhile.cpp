@@ -83,7 +83,7 @@ struct ForLoopLoweringPattern : public OpRewritePattern<ForOp> {
 
     // Inline for-loop body operations into 'after' region.
     for (auto &arg : llvm::make_early_inc_range(*forOp.getBody()))
-      arg.moveBefore(afterBlock, afterBlock->end());
+      rewriter.moveOpBefore(&arg, afterBlock, afterBlock->end());
 
     // Add incremented IV to yield operations
     for (auto yieldOp : afterBlock->getOps<scf::YieldOp>()) {
@@ -112,7 +112,7 @@ struct ForToWhileLoop : public impl::SCFForToWhileLoopBase<ForToWhileLoop> {
     MLIRContext *ctx = parentOp->getContext();
     RewritePatternSet patterns(ctx);
     patterns.add<ForLoopLoweringPattern>(ctx);
-    (void)applyPatternsAndFoldGreedily(parentOp, std::move(patterns));
+    (void)applyPatternsGreedily(parentOp, std::move(patterns));
   }
 };
 } // namespace
