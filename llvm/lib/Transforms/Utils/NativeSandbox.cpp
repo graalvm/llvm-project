@@ -52,7 +52,7 @@ PreservedAnalyses NativeSandboxPass::run(Module &M,
     // [rust] for cases where (some) functions go through GOT
     // this can end up generating rip relative addressing for indirect calls
     if (M.getRtLibUseGOT()) {
-        M.setModuleFlag(llvm::Module::ModFlagBehavior::Max, "RtLibUseGOT", 0);
+        M.setModuleFlag(llvm::Module::ModFlagBehavior::Max, "RtLibUseGOT", static_cast<Metadata*>(0));
     }
 
     if (!isIgnoredForPolling(M)) {
