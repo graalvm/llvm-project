@@ -1200,7 +1200,7 @@ void Sandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
       0x59,                   	                        // pop    %rcx
       0x41, 0xff, 0xe3,             	                // jmpq   *%r11
       0xcc,                   	                        // int3   
-      0x90,                                             // nop
+      0x90, 0x90, 0x90, 0x90,                           // nop; padding
   };
   memcpy(buf, inst, sizeof(inst));
 
