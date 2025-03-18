@@ -2154,9 +2154,9 @@ def fsignaling_math : Flag<["-"], "fsignaling-math">, Group<f_Group>;
 def fno_signaling_math : Flag<["-"], "fno-signaling-math">, Group<f_Group>;
 defm jump_tables : BoolFOption<"jump-tables",
   CodeGenOpts<"NoUseJumpTables">, DefaultFalse,
-  NegFlag<SetTrue, [], [ClangOption, CC1Option], "Do not use">,
-  PosFlag<SetFalse, [], [ClangOption], "Use">,
-  BothFlags<[], [ClangOption], " jump tables for lowering switches">>;
+  NegFlag<SetTrue, [], [ClangOption, CC1Option, FlangOption, FC1Option], "Do not use">,
+  PosFlag<SetFalse, [], [ClangOption, FlangOption], "Use">,
+  BothFlags<[], [ClangOption, FlangOption], " jump tables for lowering switches">>;
 defm force_enable_int128 : BoolFOption<"force-enable-int128",
   TargetOpts<"ForceEnableInt128">, DefaultFalse,
   PosFlag<SetTrue, [], [ClangOption, CC1Option], "Enable">,
@@ -2678,10 +2678,10 @@ def finstrument_function_entry_bare : Flag<["-"], "finstrument-function-entry-ba
   HelpText<"Instrument function entry only, after inlining, without arguments to the instrumentation call">,
   MarshallingInfoFlag<CodeGenOpts<"InstrumentFunctionEntryBare">>;
 def fcf_protection_EQ : Joined<["-"], "fcf-protection=">,
-  Visibility<[ClangOption, CLOption, CC1Option]>, Group<f_Group>,
+  Visibility<[ClangOption, CLOption, CC1Option,FlangOption,FC1Option]>, Group<f_Group>,
   HelpText<"Instrument control-flow architecture protection">, Values<"return,branch,full,none">;
 def fcf_protection : Flag<["-"], "fcf-protection">, Group<f_Group>,
-  Visibility<[ClangOption, CLOption, CC1Option]>,
+  Visibility<[ClangOption, CLOption, CC1Option,FlangOption,FC1Option]>,
   Alias<fcf_protection_EQ>, AliasArgs<["full"]>,
   HelpText<"Enable cf-protection in 'full' mode">;
 def mfunction_return_EQ : Joined<["-"], "mfunction-return=">,
@@ -6126,7 +6126,8 @@ def fbinutils_version_EQ : Joined<["-"], "fbinutils-version=">,
   "features can be used, regardless of binutils support. Defaults to 2.26.">;
 def fuse_ld_EQ : Joined<["-"], "fuse-ld=">, Group<f_Group>,
   Flags<[LinkOption]>, Visibility<[ClangOption, FlangOption, CLOption]>;
-def ld_path_EQ : Joined<["--"], "ld-path=">, Group<Link_Group>;
+def ld_path_EQ : Joined<["--"], "ld-path=">, Group<Link_Group>,
+  Flags<[LinkOption]>, Visibility<[ClangOption, FlangOption, CLOption]>;
 
 defm align_labels : BooleanFFlag<"align-labels">, Group<clang_ignored_gcc_optimization_f_Group>;
 def falign_labels_EQ : Joined<["-"], "falign-labels=">, Group<clang_ignored_gcc_optimization_f_Group>;
@@ -6736,7 +6737,7 @@ def debug_info_kind_EQ : Joined<["-"], "debug-info-kind=">;
 
 } // let Visibility = [CC1Option, CC1AsOption, FC1Option]
 
-let Visibility = [ClangOption, CC1Option] in {
+let Visibility = [ClangOption, CC1Option, FlangOption, FC1Option] in {
 
 def Sandbox_EQ : Joined<["-"], "sandbox=">,
 	Values<"off,swcfi,hwcfi">,
@@ -6747,7 +6748,7 @@ def Sandbox : Flag<["-"], "sandbox">,
     Alias<Sandbox_EQ>, AliasArgs<["swcfi"]>;
 def NoSandbox : Flag<["-"], "no-sandbox">;
 
-} // let Visibility = [ClangOption, CC1Option]
+} // let Visibility = [ClangOption, CC1Option, FlangOption, FC1Option]
 
 let Visibility = [CC1Option, CC1AsOption] in {
 
