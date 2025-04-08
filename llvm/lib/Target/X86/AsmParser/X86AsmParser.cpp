@@ -110,7 +110,8 @@ class X86AsmParser : public MCTargetAsmParser {
   bool UseApxExtendedReg = false;
   // Is this instruction explicitly required not to update flags?
   bool ForcedNoFlag = false;
-
+  // signal to emit an endbr64 after a label
+  bool EmitENDBR64AfterLabel = false;
 private:
   SMLoc consumeToken() {
     MCAsmParser &Parser = getParser();
@@ -1285,6 +1286,8 @@ public:
                         SMLoc NameLoc, OperandVector &Operands) override;
 
   bool ParseDirective(AsmToken DirectiveID) override;
+
+  void onLabelParsed(MCSymbol *Symbol) override;
 
   ParseStatus parseRawInstructions(std::vector<std::pair<const MCExpr *, SMLoc>>&) override;
 };
@@ -3949,6 +3952,15 @@ void X86AsmParser::applyLVILoadHardeningMitigation(MCInst &Inst,
 
 void X86AsmParser::emitInstruction(MCInst &Inst, OperandVector &Operands,
                                    MCStreamer &Out) {
+  if (isSandboxCFI() && EmitENDBR64AfterLabel) {
+    EmitENDBR64AfterLabel = false;
+    if (Inst.getOpcode() != X86::INT3 && Inst.getOpcode() != X86::ENDBR64) {
+      MCInst EndbrInst;
+      EndbrInst.setOpcode(X86::ENDBR64);
+      Out.emitInstruction(EndbrInst, getSTI());
+    }
+  }
+
   if (LVIInlineAsmHardening &&
       getSTI().hasFeature(X86::FeatureLVIControlFlowIntegrity))
     applyLVICFIMitigation(Inst, Out);
@@ -4942,6 +4954,15 @@ ParseStatus X86AsmParser::parseRawInstructions(std::vector<std::pair<const MCExp
   } else {
     return ParseStatus::NoMatch;
   }
+}
+
+void X86AsmParser::onLabelParsed(MCSymbol *Symbol) {
+   if (isSandboxSWCFI() && Symbol->isInSection() && !Symbol->isTemporary()) {
+     MCSection &Section = Symbol->getSection();
+     if (Section.getName().starts_with(".text")) {
+       EmitENDBR64AfterLabel = true;
+     }
+   }
 }
 
 // Force static initialization.
