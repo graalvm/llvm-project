@@ -44,14 +44,25 @@
 
 using namespace llvm;
 
-cl::opt<std::string> TraceX86Sandbox ("trace-x86-sandbox", cl::desc("Enable x86 sandbox pass tracing to stdout"), cl::init(""));
+cl::opt<std::string> TraceX86Sandbox ("trace-x86-sandbox", cl::desc("Enable x86 sandbox pass tracing to stderr"), cl::init(""));
 
-static bool isTraceX86Sandbox(MachineFunction &F) {
+enum X86TraceModeEnum {
+    NONE,
+    ALL,
+    FUNC,
+};
+
+static X86TraceModeEnum getTraceX86Sandbox(MachineFunction &F) {
     if (!TraceX86Sandbox.empty()) {
-        StringRef predicate = TraceX86Sandbox;
-        return predicate.equals("*") || predicate.starts_with(F.getName());
+        StringRef Predicate = TraceX86Sandbox;
+        if (Predicate.equals("*")) {
+          return X86TraceModeEnum::ALL;
+        }
+        if (F.getName().contains(Predicate)) {
+          return X86TraceModeEnum::FUNC;
+        }
     }
-    return false;
+    return X86TraceModeEnum::NONE;
 }
 
 #define PASS_KEY "x86-sandbox-pass"
@@ -177,13 +188,23 @@ bool X86SandboxPass::runOnMachineFunction(
 #endif
 
     bool Modified = false;
+    X86TraceModeEnum TraceMode = getTraceX86Sandbox(MF);
 
     for (auto &MBB : MF) {
+
+        if (TraceMode != X86TraceModeEnum::NONE) {
+          errs() << "[X86] [SandboxPass] :" << MF.getName() << "\n";
+        }
 
         for (auto MBBI = MBB.begin(); MBBI != MBB.end(); ++MBBI) {
             MachineInstr &MI = *MBBI;
             DILocation *DL = MI.getDebugLoc();
             int Opc = MI.getOpcode();
+
+            if (TraceMode == X86TraceModeEnum::FUNC) {
+              errs() << "[X86] [" << MF.getName() << "] ";
+              MI.print(errs());
+            }
 
             if (SandboxCFIMode == SandboxModeEnum::SWCFI) {
 
@@ -225,8 +246,6 @@ bool X86SandboxPass::runOnMachineFunction(
                         .addReg(0)             // Segment
                         ;
 
-                    if (isTraceX86Sandbox(MF))
-                        outs() << "[X86] [SandboxPass] :" << MF.getName() << "\n";
                     BuildMI(MBB, MBBI, DL, TII->get(X86::ADD32ri), TargetReg)
                         .addReg(TargetReg)
                         .addImm(0x05e1f00d); // -ENDBR64
