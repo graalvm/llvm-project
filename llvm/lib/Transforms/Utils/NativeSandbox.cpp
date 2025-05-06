@@ -30,14 +30,25 @@ static bool isIgnoredForPolling(Function &F) {
     return !ThreadWatchDog;
 }
 
-cl::opt<std::string> TraceNativeSandbox ("trace-native-sandbox", cl::desc("Enable native sandbox pass tracing to stdout"), cl::init(""));
+cl::opt<std::string> TraceNativeSandbox ("trace-native-sandbox", cl::desc("Enable native sandbox pass tracing to stderr"), cl::init(""));
 
-static bool isTraceNativeSandbox(Function &F) {
+enum NativeTraceModeEnum {
+  NONE,
+  ALL,
+  FUNC,
+};
+
+static NativeTraceModeEnum getTraceNativeSandbox(Function &F) {
     if (!TraceNativeSandbox.empty()) {
-        StringRef predicate = TraceNativeSandbox;
-        return predicate == "*" || predicate.starts_with(F.getName());
+        StringRef Predicate = TraceNativeSandbox;
+        if (Predicate == "*") {
+            return NativeTraceModeEnum::ALL;
+        }
+        if (F.getName().contains(Predicate)) {
+            return NativeTraceModeEnum::FUNC;
+        }
     }
-    return false;
+    return NativeTraceModeEnum::NONE;
 }
 
 PreservedAnalyses NativeSandboxPass::run(Module &M,
@@ -91,8 +102,6 @@ static void insertSandboxPoll(Function &F, IRBuilder<> &Builder, LoadInst *poll_
 }
 
 static CallInst* insertSandboxCFI(Function &F, IRBuilder<> &Builder, Value *endbrPtr) {
-    if (isTraceNativeSandbox(F)) 
-        outs() << "[Native] [SandboxPass] :" << F.getName() << "\n";
     Module *M = F.getParent();
     Function *sandbox_cfi_instr = M->getFunction("llvm.sandboxcfi.p0.p0");
     return Builder.CreateCall(sandbox_cfi_instr, { endbrPtr });
@@ -131,7 +140,12 @@ PreservedAnalyses NativeSandboxPass::run(Function &F,
     // force add the extern return thunk (rustc does not add it for the main stub function)
     F.addFnAttr(llvm::Attribute::FnRetThunkExtern);
 
+    NativeTraceModeEnum TraceMode = getTraceNativeSandbox(F);
     for (BasicBlock &B : F) {
+
+        if (TraceMode != NativeTraceModeEnum::NONE) {
+            errs() << "[Native] [SandboxPass] :" << F.getName() << "\n";
+        }
 
         if (!ignoredForPolling && !poll_page_addr) {
             IRBuilder<> poll_builder(&B);
@@ -140,11 +154,20 @@ PreservedAnalyses NativeSandboxPass::run(Function &F,
         }
 
         for (Instruction &I: B) {
+
+            if (TraceMode == NativeTraceModeEnum::FUNC) {
+                errs() << "[Native] [" << F.getName() << "] ";
+                I.print(errs());
+            }
+
             if (auto *CB = dyn_cast<CallBase>(&I)) {
                 // We know we've encountered some kind of call instruction (call,
                 // invoke, or callbr), so we need to determine if it's a call to
                 // the function pointed to by m_func or not.
                 if (callNeedsSwcfi(CB, F)) {
+                    if (TraceMode) {
+                      errs() << "[Native] [" << F.getName() << "] needs SWCFI\n";
+                    }
                     IRBuilder<> Builder(CB);
 
                     CallInst *sandbox_cfi_instr_call = insertSandboxCFI(F, Builder, CB->getCalledOperand());
