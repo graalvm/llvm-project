@@ -22,8 +22,8 @@ using namespace llvm;
 cl::opt<bool> ThreadWatchDog ("sandbox-thread-watchdog", cl::desc("Enable native sandbox thread watchdog"), cl::init(false));
 
 static bool isIgnoredForPolling(Module &M) {
-    return !ThreadWatchDog || M.getName().equals("ldso/dynlink.c") ||
-        M.getName().equals("src/env/__init_tls.c");
+    return !ThreadWatchDog || M.getName() == "ldso/dynlink.c" ||
+        M.getName() == "src/env/__init_tls.c";
 }
 
 static bool isIgnoredForPolling(Function &F) {
@@ -41,7 +41,7 @@ enum NativeTraceModeEnum {
 static NativeTraceModeEnum getTraceNativeSandbox(Function &F) {
     if (!TraceNativeSandbox.empty()) {
         StringRef Predicate = TraceNativeSandbox;
-        if (Predicate.equals("*")) {
+        if (Predicate == "*") {
             return NativeTraceModeEnum::ALL;
         }
         if (F.getName().contains(Predicate)) {
@@ -63,7 +63,7 @@ PreservedAnalyses NativeSandboxPass::run(Module &M,
     // [rust] for cases where (some) functions go through GOT
     // this can end up generating rip relative addressing for indirect calls
     if (M.getRtLibUseGOT()) {
-        M.setModuleFlag(llvm::Module::ModFlagBehavior::Max, "RtLibUseGOT", 0);
+        M.setModuleFlag(llvm::Module::ModFlagBehavior::Max, "RtLibUseGOT", static_cast<Metadata*>(0));
     }
 
     if (!isIgnoredForPolling(M)) {

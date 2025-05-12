@@ -55,7 +55,7 @@ enum X86TraceModeEnum {
 static X86TraceModeEnum getTraceX86Sandbox(MachineFunction &F) {
     if (!TraceX86Sandbox.empty()) {
         StringRef Predicate = TraceX86Sandbox;
-        if (Predicate.equals("*")) {
+        if (Predicate == "*") {
           return X86TraceModeEnum::ALL;
         }
         if (F.getName().contains(Predicate)) {
