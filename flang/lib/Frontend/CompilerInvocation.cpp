@@ -21,6 +21,7 @@
 #include "flang/Tools/TargetSetup.h"
 #include "flang/Version.inc"
 #include "clang/Basic/AllDiagnostics.h"
+#include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/DiagnosticDriver.h"
 #include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Driver/DriverDiagnostic.h"
@@ -251,6 +252,18 @@ static void parseCodeGenArgs(Fortran::frontend::CodeGenOptions &opts,
                                   (opts.OptimizationLevel > 1));
 
   opts.AliasAnalysis = opts.OptimizationLevel > 0;
+
+  // -sandbox=off|swcfi|hwcfi
+  if (const llvm::opt::Arg *A = args.getLastArg(clang::driver::options::OPT_Sandbox_EQ)) {
+    llvm::StringRef sandboxMode = A->getValue();
+    if (sandboxMode == "off") {
+        opts.SandboxMode = clang::CodeGenOptions::SandboxModeEnum::OFF;
+    } else if (sandboxMode == "swcfi") {
+        opts.SandboxMode = clang::CodeGenOptions::SandboxModeEnum::SWCFI;
+    } else if (sandboxMode == "hwcfi") {
+        opts.SandboxMode = clang::CodeGenOptions::SandboxModeEnum::HWCFI;
+    } 
+  }
 
   // -mframe-pointer=none/non-leaf/all option.
   if (const llvm::opt::Arg *a =

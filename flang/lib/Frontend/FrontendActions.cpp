@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/Basic/CodeGenOptions.h" 
+
 #include "flang/Frontend/FrontendActions.h"
 #include "flang/Common/default-kinds.h"
 #include "flang/Frontend/CompilerInstance.h"
@@ -55,6 +57,7 @@
 #include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 #include "llvm/IR/LLVMRemarkStreamer.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRPrinter/IRPrintingPasses.h"
 #include "llvm/IRReader/IRReader.h"
@@ -75,6 +78,7 @@
 #include "llvm/TargetParser/RISCVTargetParser.h"
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/Transforms/Utils/NativeSandbox.h"
 #include <memory>
 #include <system_error>
 
@@ -1074,6 +1078,19 @@ void CodeGenAction::runOptimizationPipeline(llvm::raw_pwrite_stream &os) {
     mpm.addPass(llvm::BitcodeWriterPass(os));
   else if (action == BackendActionTy::Backend_EmitLL)
     mpm.addPass(llvm::PrintModulePass(os));
+
+  if (opts.SandboxMode) {
+    if (!llvmModule->getModuleFlag("SandboxModeSWCFI"))
+        llvmModule->addModuleFlag(llvm::Module::Error, "SandboxModeSWCFI",
+                                 opts.SandboxMode ==  clang::CodeGenOptions::SandboxModeEnum::SWCFI);
+    if (!llvmModule->getModuleFlag("SandboxModeHWCFI"))
+        llvmModule->addModuleFlag(llvm::Module::Error, "SandboxModeHWCFI",
+                                 opts.SandboxMode ==  clang::CodeGenOptions::SandboxModeEnum::HWCFI);
+
+      
+    mpm.addPass(llvm::NativeSandboxPass());
+    mpm.addPass(createModuleToFunctionPassAdaptor(llvm::NativeSandboxPass()));
+  }
 
   // FIXME: This should eventually be replaced by a first-class driver option.
   // This should be done for both flang and clang simultaneously.
