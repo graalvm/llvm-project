@@ -21,6 +21,7 @@
 #include "flang/Tools/TargetSetup.h"
 #include "flang/Version.inc"
 #include "clang/Basic/AllDiagnostics.h"
+#include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/DiagnosticDriver.h"
 #include "clang/Basic/DiagnosticOptions.h"
 #include "clang/Driver/DriverDiagnostic.h"
@@ -251,6 +252,32 @@ static void parseCodeGenArgs(Fortran::frontend::CodeGenOptions &opts,
                                   (opts.OptimizationLevel > 1));
 
   opts.AliasAnalysis = opts.OptimizationLevel > 0;
+
+  // -sandbox=off|swcfi|hwcfi
+  if (const llvm::opt::Arg *A = args.getLastArg(clang::driver::options::OPT_Sandbox_EQ)) {
+    llvm::StringRef sandboxMode = A->getValue();
+    if (sandboxMode == "off") {
+        opts.SandboxMode = clang::CodeGenOptions::SandboxModeEnum::OFF;
+    } else if (sandboxMode == "swcfi") {
+        opts.SandboxMode = clang::CodeGenOptions::SandboxModeEnum::SWCFI;
+    } else if (sandboxMode == "hwcfi") {
+        opts.SandboxMode = clang::CodeGenOptions::SandboxModeEnum::HWCFI;
+    } 
+  }
+
+  // -fcf-protection 
+  if (const llvm::opt::Arg *A = args.getLastArg(clang::driver::options::OPT_fcf_protection_EQ)) {
+    llvm::StringRef Name = A->getValue();
+    if (Name == "full") {
+      opts.CFProtectionReturn = 1;
+      opts.CFProtectionBranch = 1;
+    } else if (Name == "return")
+      opts.CFProtectionReturn = 1;
+    else if (Name == "branch")
+      opts.CFProtectionBranch = 1;
+    else if (Name != "none")
+      diags.Report(clang::diag::err_drv_invalid_value) << A->getAsString(args) << Name;
+  }
 
   // -mframe-pointer=none/non-leaf/all option.
   if (const llvm::opt::Arg *a =

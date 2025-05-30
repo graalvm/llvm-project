@@ -15,6 +15,7 @@
 #ifndef FORTRAN_FRONTEND_CODEGENOPTIONS_H
 #define FORTRAN_FRONTEND_CODEGENOPTIONS_H
 
+#include "clang/Basic/CodeGenOptions.h"
 #include "llvm/Frontend/Debug/Options.h"
 #include "llvm/Frontend/Driver/CodeGenOptions.h"
 #include "llvm/Support/CodeGen.h"
@@ -91,6 +92,8 @@ public:
                     // -Rno-pass-missed, -Rno-pass-analysis.
     RK_WithPattern, // Remark pattern specified via '-Rgroup=regexp'.
   };
+
+  clang::CodeGenOptions::SandboxModeEnum SandboxMode;
 
   /// \brief Code object version for AMDGPU.
   llvm::CodeObjectVersionKind CodeObjectVersion =

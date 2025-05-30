@@ -34,7 +34,10 @@ CODEGENOPT(StackArrays, 1, 0) ///< -fstack-arrays (enable the stack-arrays pass)
 CODEGENOPT(LoopVersioning, 1, 0) ///< Enable loop versioning.
 CODEGENOPT(UnrollLoops, 1, 0) ///< Enable loop unrolling
 CODEGENOPT(AliasAnalysis, 1, 0) ///< Enable alias analysis pass
-
+CODEGENOPT(CFProtectionReturn , 1, 0) ///< if -fcf-protection is
+                                      ///< set to full or return.
+CODEGENOPT(CFProtectionBranch , 1, 0) ///< if -fcf-protection is
+                                      ///< set to full or branch.
 CODEGENOPT(Underscoring, 1, 1)
 ENUM_CODEGENOPT(RelocationModel, llvm::Reloc::Model, 3, llvm::Reloc::PIC_) ///< Name of the relocation model to use.
 ENUM_CODEGENOPT(DebugInfo,  llvm::codegenoptions::DebugInfoKind, 4,  llvm::codegenoptions::NoDebugInfo) ///< Level of debug info to generate

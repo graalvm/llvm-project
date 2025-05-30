@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/Basic/CodeGenOptions.h" 
+
 #include "flang/Frontend/FrontendActions.h"
 #include "flang/Common/default-kinds.h"
 #include "flang/Frontend/CompilerInstance.h"
@@ -55,6 +57,7 @@
 #include "llvm/CodeGen/MachineOptimizationRemarkEmitter.h"
 #include "llvm/IR/LLVMRemarkStreamer.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/PassManager.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRPrinter/IRPrintingPasses.h"
 #include "llvm/IRReader/IRReader.h"
@@ -73,8 +76,10 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/TargetParser/RISCVISAInfo.h"
 #include "llvm/TargetParser/RISCVTargetParser.h"
+#include "llvm/TargetParser/X86TargetParser.h"
 #include "llvm/Transforms/IPO/Internalize.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
+#include "llvm/Transforms/Utils/NativeSandbox.h"
 #include <memory>
 #include <system_error>
 
@@ -1006,6 +1011,19 @@ static void generateMachineCodeOrAssemblyImpl(clang::DiagnosticsEngine &diags,
   delete tlii;
 }
 
+bool
+checkCFProtectionSupported(llvm::Triple &TargetTriple, llvm::StringRef TargetCPU, clang::DiagnosticsEngine &Diags) {
+  if (TargetTriple.isX86()) {
+    // see clang/lib/Basic/Targets/X86.h
+    bool Only64Bit = TargetTriple.getArch() != llvm::Triple::x86;
+    llvm::X86::CPUKind CPU = llvm::X86::parseArchX86(TargetCPU, Only64Bit);
+    if (CPU == llvm::X86::CK_None || CPU >= llvm::X86::CK_PentiumPro)
+      return true;
+  }
+  Diags.Report(clang::diag::err_opt_not_valid_on_target) << "cf-protection=return";
+  return false;
+}
+
 void CodeGenAction::runOptimizationPipeline(llvm::raw_pwrite_stream &os) {
   CompilerInstance &ci = getInstance();
   const CodeGenOptions &opts = ci.getInvocation().getCodeGenOpts();
@@ -1074,6 +1092,31 @@ void CodeGenAction::runOptimizationPipeline(llvm::raw_pwrite_stream &os) {
     mpm.addPass(llvm::BitcodeWriterPass(os));
   else if (action == BackendActionTy::Backend_EmitLL)
     mpm.addPass(llvm::PrintModulePass(os));
+
+  if (opts.SandboxMode) {
+    if (!llvmModule->getModuleFlag("SandboxModeSWCFI"))
+        llvmModule->addModuleFlag(llvm::Module::Error, "SandboxModeSWCFI",
+                                 opts.SandboxMode ==  clang::CodeGenOptions::SandboxModeEnum::SWCFI);
+    if (!llvmModule->getModuleFlag("SandboxModeHWCFI"))
+        llvmModule->addModuleFlag(llvm::Module::Error, "SandboxModeHWCFI",
+                                 opts.SandboxMode ==  clang::CodeGenOptions::SandboxModeEnum::HWCFI);
+
+      
+    mpm.addPass(llvm::NativeSandboxPass());
+    mpm.addPass(createModuleToFunctionPassAdaptor(llvm::NativeSandboxPass()));
+  }
+
+  if (opts.CFProtectionReturn &&
+      checkCFProtectionSupported(triple, targetMachine->getTargetCPU(), diags)) {
+    // Indicate that we want to instrument return control flow protection.
+    llvmModule->addModuleFlag(llvm::Module::Min, "cf-protection-return", 1);
+  }
+
+  if (opts.CFProtectionBranch &&
+      checkCFProtectionSupported(triple, targetMachine->getTargetCPU(), diags)) {
+    // Indicate that we want to instrument branch control flow protection.
+    llvmModule->addModuleFlag(llvm::Module::Min, "cf-protection-branch", 1);
+  }
 
   // FIXME: This should eventually be replaced by a first-class driver option.
   // This should be done for both flang and clang simultaneously.
