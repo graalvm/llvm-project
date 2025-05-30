@@ -265,6 +265,20 @@ static void parseCodeGenArgs(Fortran::frontend::CodeGenOptions &opts,
     } 
   }
 
+  // -fcf-protection 
+  if (const llvm::opt::Arg *A = args.getLastArg(clang::driver::options::OPT_fcf_protection_EQ)) {
+    llvm::StringRef Name = A->getValue();
+    if (Name == "full") {
+      opts.CFProtectionReturn = 1;
+      opts.CFProtectionBranch = 1;
+    } else if (Name == "return")
+      opts.CFProtectionReturn = 1;
+    else if (Name == "branch")
+      opts.CFProtectionBranch = 1;
+    else if (Name != "none")
+      diags.Report(clang::diag::err_drv_invalid_value) << A->getAsString(args) << Name;
+  }
+
   // -mframe-pointer=none/non-leaf/all option.
   if (const llvm::opt::Arg *a =
           args.getLastArg(clang::driver::options::OPT_mframe_pointer_EQ)) {
