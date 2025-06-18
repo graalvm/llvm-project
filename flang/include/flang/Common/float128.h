@@ -52,6 +52,11 @@
 #endif /* (defined(__FLOAT128__) || defined(__SIZEOF_FLOAT128__)) && \
           !defined(_LIBCPP_VERSION)  && !defined(__CUDA_ARCH__) */
 
+// GRAALOS: musl does not provide support for float128 atm
+#ifdef WITHOUT_FLOAT128
+#undef HAS_FLOAT128
+#endif
+
 #if LDBL_MANT_DIG == 113
 #define HAS_LDBL128 1
 #endif
