@@ -158,6 +158,7 @@ PreservedAnalyses NativeSandboxPass::run(Function &F,
             if (TraceMode == NativeTraceModeEnum::FUNC) {
                 errs() << "[Native] [" << F.getName() << "] ";
                 I.print(errs());
+                errs() << "\n";
             }
 
             if (auto *CB = dyn_cast<CallBase>(&I)) {

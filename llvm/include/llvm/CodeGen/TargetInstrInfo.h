@@ -384,6 +384,12 @@ public:
     return MI->isTerminator() && isUnspillableTerminatorImpl(MI);
   }
 
+  /// Return true if the given instruction is unspillable,
+  /// according to isUnspillableInstructionImpl.
+  bool isUnspillableInstruction(const MachineInstr *MI) const {
+    return isUnspillableInstructionImpl(MI);
+  }
+
   /// Returns the size in bytes of the specified MachineInstr, or ~0U
   /// when this function is not implemented by a target.
   virtual unsigned getInstSizeInBytes(const MachineInstr &MI) const {
@@ -1081,6 +1087,14 @@ protected:
   /// users for the terminators value. They may run out of registers if not used
   /// carefully.
   virtual bool isUnspillableTerminatorImpl(const MachineInstr *MI) const {
+    return false;
+  }
+
+  /// Return true if the given MI is not expected to spill. This
+  /// sets the live interval as not spillable and adjusts phi node lowering to
+  /// not introduce copies after the instruction. Use with care, this is
+  /// currently used for the SWCFI intrinsic in very controlled situations.
+  virtual bool isUnspillableInstructionImpl(const MachineInstr *MI) const {
     return false;
   }
 

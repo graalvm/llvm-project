@@ -229,6 +229,11 @@ public:
       I.getOperand(1).setImm(V);
   }
 
+  bool isUnspillableInstructionImpl(const MachineInstr *MI) const override {
+    // mark only the special X86_sandboxcfi as unspillable!
+    return MI->getOpcode() == X86::X86_sandboxcfi;
+  }
+
   /// getSPAdjust - This returns the stack pointer adjustment made by
   /// this instruction. For x86, we need to handle more complex call
   /// sequences involving PUSHes.

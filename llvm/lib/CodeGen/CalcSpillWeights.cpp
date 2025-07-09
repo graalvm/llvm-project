@@ -252,7 +252,7 @@ float VirtRegAuxInfo::weightCalcHelper(LiveInterval &LI, SlotIndex *Start,
 
     // For terminators that produce values, ask the backend if the register is
     // not spillable.
-    if (TII.isUnspillableTerminator(MI) &&
+    if ((TII.isUnspillableTerminator(MI) || TII.isUnspillableInstruction(MI)) &&
         MI->definesRegister(LI.reg(), /*TRI=*/nullptr)) {
       LI.markNotSpillable();
       return -1.0f;
