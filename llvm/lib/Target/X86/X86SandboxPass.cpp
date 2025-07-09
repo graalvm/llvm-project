@@ -151,6 +151,25 @@ static bool isIndirectCallOrBranch(MachineInstr &MI) {
     return false;
 }
 
+#ifdef VERIFY_SANDBOX
+// The result of an X86_sandboxcfi instruction could have been spilled and reloaded before reaching the call/jump.
+// In such cases, ReachingDefAnalysis does not track the value any further and marks the reload as the definition.
+// There seems to be no way to detect a spill reload 100% reliably, but a rough approximation should be enough for
+// the purpose of an assertion. If the instruction looks like a spill reload, assume it is and pass.
+static bool mayBeSpilledAddrReload(MachineInstr &MI) {
+    if (MI.getOpcode() != X86::MOV64rm) { // 64-bit mov from memory to register
+        return false;
+    }
+    auto mo = MI.memoperands();
+    if (mo.size() != 1) { // should be implied by the opcode but make sure
+        return false;
+    }
+    // if the memory operand was created for InlineSpiller::insertReload, it is a FixedStackPseudoSourceValue
+    const PseudoSourceValue *PVal = mo[0]->getPseudoValue();
+    return PVal && PVal->kind() == PseudoSourceValue::FixedStack;
+}
+#endif
+
 bool X86SandboxPass::runOnMachineFunction(
         MachineFunction &MF) {
     LLVM_DEBUG(dbgs() << "***** " << getPassName() << " : " << MF.getName()
@@ -197,7 +216,7 @@ bool X86SandboxPass::runOnMachineFunction(
                     RDA.getGlobalReachingDefs(&MI, Base.getReg().asMCReg(), defMIs);
 
                     for (auto *defMI : defMIs) {
-                        if (defMI->getOpcode() != X86::X86_sandboxcfi) {
+                        if (defMI->getOpcode() != X86::X86_sandboxcfi && !mayBeSpilledAddrReload(*defMI)) {
                             errs() << "------------------------------------[ X86SandboxPass ]------------------------------------\n";
                             errs() << MF.getName() << "\n";
                             errs() << "indirect call/jump instruction uses value not passed through X86_sandboxcfi\n";
