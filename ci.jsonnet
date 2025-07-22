@@ -31,8 +31,10 @@ local jdk = {
 local ondemand_build_sandbox_llvm = fast_machine + mx + cmake + jdk + {
     name: "ondemand-build-sandbox-llvm",
     targets: ["ondemand"],
+    deploysArtifacts: true,
     run: [
-        self.mx(["build", "--dependencies", "SANDBOX_LLVM"]),
+        self.mx(["build", "--dependencies", "CACHED_SANDBOX_LLVM"]),
+        self.mx(["publish-cache", "CACHED_SANDBOX_LLVM"]),
     ],
 };
 

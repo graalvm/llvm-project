@@ -33,10 +33,14 @@ from mx_cmake import CMakeNinjaProject #pylint: disable=unused-import
 
 import mx
 import mx_subst
+import mx_util
 
+import argparse
 import hashlib
 import itertools
 import os.path
+import shutil
+import time
 
 def suite_version(arg):
     suite = mx.suite(arg)
@@ -119,3 +123,160 @@ class LLVMArchiveTask(mx.LayoutArchiveTask):
                 f.write(new_digest)
             return True
 
+# A distribution that's a proxy for another LayoutDirDistribution. This adds the capability to skip building the
+# other distribution, instead picking up a pre-built copy of it.
+class CachedDistribution(mx.LayoutTARDistribution):
+    def __init__(self, suite, name=None, deps=None, excludedLibs=None, platformDependent=True, theLicense=None, defaultBuild=True, layout=None, **kw_args):
+        self._delegate = kw_args.pop('delegate')
+        self.artifactInfo = kw_args.pop('artifactInfo')
+        ciJob = kw_args.pop('ciJob', None)
+        if ciJob is not None:
+            ciJob = mx_subst.results_substitutions.substitute(ciJob)
+        self.ciJob = ciJob
+        super().__init__(suite, name=name, deps=[], theLicense=theLicense, platformDependent=True, layout={}, **kw_args)
+        cache = self.cache_filename()
+        if os.path.exists(cache):
+            self.is_cached = True
+            # switch output to a different directory so we never confuse downloaded and locally built artifacts
+            self.output = os.path.join(self.get_cache_root(), name)
+        else:
+            self.is_cached = False
+            self.deps = [self._delegate]
+            self.layout = {
+                "./": {
+                    "source_type": "dependency",
+                    "dependency": self._delegate,
+                    "dereference": "never",
+                    "path": "*",
+                }
+            }
+
+    def get_cache_root(self):
+        return os.path.join(self.suite.get_output_root(platformDependent=self.platformDependent), 'dists-cache')
+
+    def cache_filename(self):
+        return os.path.join(self.get_cache_root(), self.default_filename() + '.gz')
+
+    def get_artifact_selector(self):
+        ret = self.artifactInfo.copy()
+        ret['revision'] = self.suite.version()
+        if self.isJDKDependent():
+            ret['javaVersion'] = str(mx.get_jdk().javaCompliance.value)
+        if self.isPlatformDependent():
+            ret['os'] = mx.get_os()
+            ret['arch'] = mx.get_arch()
+        return ret
+
+    def getBuildTask(self, args):
+        if self.is_cached:
+            return CachedArchiveTask(args, self)
+        else:
+            return super(CachedDistribution, self).getBuildTask(args)
+
+    def get_output(self):
+        if self.is_cached:
+            return self.output
+        else:
+            return super(CachedDistribution, self).get_output()
+
+
+class CachedArchiveTask(mx.LayoutArchiveTask):
+    def needsBuild(self, newestInput):
+        if not os.path.isdir(self.subject.output):
+            return (True, "does not exist")
+
+        result = mx.TimeStampFile(self.subject.path)
+        cache = mx.TimeStampFile(self.subject.cache_filename())
+        if result.isOlderThan(cache):
+            return (True, "distribution is older than downloaded file")
+        else:
+            return (False, "up to date")
+
+    def build(self):
+        zip = self.subject.path + '.gz'
+        with mx_util.SafeFileCreation(zip) as sfc:
+            shutil.copy(self.subject.cache_filename(), sfc.tmpPath)
+            final_path = self.subject.postPull(sfc.tmpPath)
+        if final_path:
+            os.rename(final_path, self.subject.path)
+
+
+@mx.command('llvm-project', 'publish-cache', '[options]')
+def publish_cache(args):
+    parser = argparse.ArgumentParser(prog='mx publish-cache')
+    parser.add_argument('distribution', action='store',
+                        help="Distribution to publish")
+    args = parser.parse_args(args)
+
+    artifact_uploader = mx.get_env('ARTIFACT_UPLOADER_SCRIPT')
+    if not artifact_uploader:
+        mx.abort("ARTIFACT_UPLOADER_SCRIPT is not set!")
+
+    d = mx.distribution(args.distribution)
+    if d.is_cached:
+        mx.abort("Can not publish cached distribution. Try 'mx use-cache --reset' first to switch to a local build.")
+
+    mx.log(f"Compressing {d.name}")
+    file = d.prePush(d.path)
+
+    mx.log("Checking for pre-existing upload")
+    selector = d.get_artifact_selector()
+    info = _query_artifact_info(**selector)
+    if len(info) > 0:
+        mx.log(f"Artifact already exists: {info[0]['artifactName']}\nSkipping upload.")
+        return
+
+    upload_cmd = [artifact_uploader, file, d.artifactName.format(**selector), "graal",
+                  "--lifecycle", "cache",
+                  "--artifact-type", selector['artifactType'],
+                  "--revision", selector['revision']
+                  ]
+    if 'os' in selector:
+        upload_cmd += ["--platform", f"{selector['os']}-{selector['arch']}"]
+    if 'javaVersion' in selector:
+        upload_cmd += ["--jdk", selector['javaVersion']]
+
+    for (retry, fatal) in [("", False), (" (retry 1)", False), (" (final retry)", True)]:
+        mx.log(f"Uploading...{retry}")
+        retcode = mx.run(upload_cmd, nonZeroIsFatal=fatal)
+        if retcode:
+            mx.log("Upload failed, maybe another job concurrently uploaded the same artifact? Waiting 30 seconds, then retrying...")
+            time.sleep(30)
+        else:
+            return
+
+@mx.command('llvm-project', 'use-cache', '[options]')
+def use_cache(args):
+    parser = argparse.ArgumentParser(prog='mx use-cache')
+    parser.add_argument('distribution', action='store',
+                        help="The cached distribution")
+
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('--reset', action='store_true',
+                       help="Switch distribution back to local build")
+    group.add_argument('--file', action='store',
+                       help="Use a given file as cache")
+
+    args = parser.parse_args(args)
+
+    d = mx.distribution(args.distribution)
+    symlink = d.cache_filename()
+
+    if args.reset:
+        if os.path.islink(symlink):
+            os.unlink(symlink)
+        else:
+            mx.warn("Cache symlink doesn't exist")
+    elif args.file is not None:
+        if not os.path.exists(args.file):
+            mx.abort("Cache file does not exist")
+        dir = os.path.dirname(symlink)
+        mx_util.ensure_dir_exists(dir)
+        if os.path.islink(symlink):
+            os.unlink(symlink)
+        os.symlink(os.path.relpath(args.file, dir), symlink)
+    else:
+        if os.path.islink(symlink):
+            mx.log(f"{d.name}: cached ({os.readlink(symlink)})")
+        else:
+            mx.log(f"{d.name}: local build")

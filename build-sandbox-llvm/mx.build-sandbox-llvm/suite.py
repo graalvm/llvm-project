@@ -96,5 +96,16 @@ suite = {
                 ],
             },
         },
+
+        # for publishing to the cache
+        "CACHED_SANDBOX_LLVM": {
+            "class": "CachedDistribution",
+            "delegate": "SANDBOX_LLVM",
+            "artifactName": "sandbox-llvm-{os}-{arch}-g{revision}.tar.gz",
+            "artifactInfo": {
+                "artifactType": "sandbox-llvm",
+            },
+            "ciJob": "ondemand-build-sandbox-llvm-<os>-<arch>",
+        },
     },
 }
