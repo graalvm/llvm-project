@@ -36,6 +36,7 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/ReachingDefAnalysis.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/MC/MCInstrInfo.h"
@@ -110,6 +111,22 @@ namespace {
             }
 #endif
             bool runOnMachineFunction(MachineFunction &MF) override;
+
+            bool doInitialization(Module &M) override {
+                bool baseResult = MachineFunctionPass::doInitialization(M);
+                // when lto is enabled this pass also runs via a linker invocation (see llvm/lib/LTO/LTOBackend.cpp)
+                // in that case, if one forgets to pass the sandbox-cfi-mode option to the linker: -Wl,-mllvm,-sandbox-cfi-mode=swcfi
+                // the lto produced code does not benefit from this pass. We initialize the static SandboxCFIMode to
+                // the module atribute set in the clang/lib/CodeGen/BackendUtil.cpp. If set, this overrides the value passed to the
+                // linker independently. Otherwise the parsed option value is used.
+                if (M.getModuleFlag("SandboxModeSWCFI")) {
+                    SandboxCFIMode = SandboxModeEnum::SWCFI;
+                } else if (M.getModuleFlag("SandboxModeHWCFI")) {
+                    SandboxCFIMode = SandboxModeEnum::HWCFI;
+                }
+
+                return baseResult;
+            }
 
             static char ID;
     };
