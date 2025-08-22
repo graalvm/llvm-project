@@ -60,7 +60,6 @@ suite = {
 
                 "COMPILER_RT_USE_BUILTINS_LIBRARY": "YES",
                 "COMPILER_RT_USE_LLVM_UNWINDER": "YES",
-                "COMPILER_RT_INCLUDE_RETTHUNK": "YES",
 
                 "COMPILER_RT_BUILD_BUILTINS": "YES",
                 "COMPILER_RT_BUILD_CRT": "YES",

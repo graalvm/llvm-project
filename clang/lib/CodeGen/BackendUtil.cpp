@@ -1108,12 +1108,16 @@ void EmitAssemblyHelper::RunOptimizationPipeline(
     MPM.addPass(VerifierPass());
 
   if (CodeGenOpts.SandboxMode) {
-    if (!TheModule->getModuleFlag("SandboxModeSWCFI"))
+    if (CodeGenOpts.SandboxMode == CodeGenOpts.SandboxModeEnum::SWCFI) {
+      if (!TheModule->getModuleFlag("SandboxModeSWCFI"))
         TheModule->addModuleFlag(llvm::Module::Error, "SandboxModeSWCFI",
                                  CodeGenOpts.SandboxMode == CodeGenOpts.SandboxModeEnum::SWCFI);
-    if (!TheModule->getModuleFlag("SandboxModeHWCFI"))
+    }
+    if (CodeGenOpts.SandboxMode == CodeGenOpts.SandboxModeEnum::HWCFI) {
+      if (!TheModule->getModuleFlag("SandboxModeHWCFI"))
         TheModule->addModuleFlag(llvm::Module::Error, "SandboxModeHWCFI",
                                  CodeGenOpts.SandboxMode == CodeGenOpts.SandboxModeEnum::HWCFI);
+    }
 
       
     MPM.addPass(NativeSandboxPass());

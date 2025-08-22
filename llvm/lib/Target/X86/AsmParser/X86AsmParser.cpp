@@ -23,6 +23,7 @@
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
+#include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCParser/MCAsmLexer.h"
 #include "llvm/MC/MCParser/MCAsmParser.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
@@ -1307,6 +1308,7 @@ public:
 
 bool isSandboxCFI();
 bool isSandboxSWCFI();
+bool isSandboxHWCFI();
 
 static bool CheckBaseRegAndIndexRegAndScale(MCRegister BaseReg,
                                             MCRegister IndexReg, unsigned Scale,
@@ -3891,22 +3893,6 @@ bool X86AsmParser::processInstruction(MCInst &Inst, const OperandVector &Ops) {
     Inst.setOpcode(X86::HLT);
     return true;
   } else return false;
-  case X86::RET64: if (isSandboxSWCFI()) {
-    StringRef RetThunkSym;
-    RetThunkSym = StringRef("__x86_return_thunk");
-    MCSymbol *Sym = this->getContext().lookupSymbol(RetThunkSym);
-    if (!Sym) {
-      Sym = this->getContext().getOrCreateSymbol(RetThunkSym);
-      Sym->setExternal(true);
-      getParser().getStreamer().emitSymbolAttribute(Sym, MCSA_Extern);
-    }
-
-    MCOperand Op = MCOperand::createExpr(MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None, this->getContext()));
-    Inst.clear();
-    Inst.setOpcode(X86::JMP_1);
-    Inst.addOperand(Op);
-    return true;
-  } else return false;
   }
 }
 
@@ -4141,9 +4127,55 @@ void X86AsmParser::emitInstruction(MCInst &Inst, OperandVector &Operands,
       getSTI().hasFeature(X86::FeatureLVIControlFlowIntegrity))
     applyLVICFIMitigation(Inst, Out);
 
+  if (isSandboxCFI() && Inst.getOpcode() == X86::RET64) {
+    MCSymbol *FailTarget;
+    // pop %r11
+    MCInst PopRetAddr = MCInstBuilder(X86::POP64r).addOperand(MCOperand::createReg(X86::R11));
+    Out.emitInstruction(PopRetAddr, getSTI());
+    if (isSandboxSWCFI()) {
+      // push %rcx
+      MCInst PushTmpReg = MCInstBuilder(X86::PUSH64r).addOperand(MCOperand::createReg(X86::RCX));
+      Out.emitInstruction(PushTmpReg, getSTI());
+      // mov (%r11),%ecx
+      MCInst DerefTarget = MCInstBuilder(X86::MOV32rm)
+        .addReg(X86::RCX)
+        .addReg(X86::R11).addImm(32).addReg(0).addImm(0).addReg(0); // Base, Scale, Index, Displacement, Segment
+      Out.emitInstruction(DerefTarget, getSTI());
+      // add $0x05e1f00d,%ecx
+      MCInst Add = MCInstBuilder(X86::ADD32ri).addReg(X86::RCX).addReg(X86::RCX).addImm(0x05e1f00d);
+      Out.emitInstruction(Add, getSTI());
+      // jne L_ret_fail
+      FailTarget = getContext().createLocalSymbol("L_ret_fail");
+      const MCExpr *FailRef = MCSymbolRefExpr::create(FailTarget, getContext());
+      MCInst Jne = MCInstBuilder(X86::JCC_1).addOperand(MCOperand::createExpr(FailRef)).addImm(X86::COND_NE);
+      Out.emitInstruction(Jne, getSTI());
+      // pop %rcx
+      MCInst PopTmpReg = MCInstBuilder(X86::POP64r).addOperand(MCOperand::createReg(X86::RCX));
+      Out.emitInstruction(PopTmpReg, getSTI());
+    }
+    if (isSandboxHWCFI()) {
+      // test %r11,(%r11)
+      MCInst TestRetAddr = MCInstBuilder(X86::TEST64mr)
+        .addReg(X86::R11).addImm(64).addReg(0).addImm(0).addReg(0) // Base, Scale, Index, Displacement, Segment
+        .addReg(X86::R11);    // Register operand to test against
+      Out.emitInstruction(TestRetAddr, getSTI());
+    }
+    // jmpq *%r11
+    MCInst JumpRetAddr = MCInstBuilder(X86::JMP64r).addReg(X86::R11);
+    Out.emitInstruction(JumpRetAddr, getSTI());
+    if (isSandboxSWCFI()) {
+      Out.emitLabel(FailTarget);
+      // int3
+      MCInst Int3 = MCInstBuilder(X86::INT3);
+      Out.emitInstruction(Int3, getSTI());
+    }
+    // don't emit original return
+    return;
+  }
+
   Out.emitInstruction(Inst, getSTI());
 
-  if (isSandboxSWCFI()) {
+  if (isSandboxCFI()) {
      const MCInstrDesc &MCID = MII.get(Inst.getOpcode());
      if (MCID.isCall()) {
         MCInst EndbrInst;
@@ -5102,7 +5134,7 @@ bool matchDirectiveValues(std::vector<std::pair<const MCExpr *, SMLoc>> & Values
 ParseStatus X86AsmParser::parseRawInstructions(std::vector<std::pair<const MCExpr *, SMLoc>> &Values) {
   // OpenSSL asm files on AMD encode ret instructions as byte string "".byte 0xf3, 0xc3", i.e. "repz ret"
   // (an obsolete branch predictor optimization).
-  if (isSandboxSWCFI() && matchDirectiveValues(Values, { 0xf3, 0xc3 }, 1)) {
+  if (isSandboxCFI() && matchDirectiveValues(Values, { 0xf3, 0xc3 }, 1)) {
     MCInst Inst;
     SmallVector<std::unique_ptr<MCParsedAsmOperand>, 8> Operands;
     Inst.setOpcode(X86::RET64);
@@ -5117,7 +5149,7 @@ ParseStatus X86AsmParser::parseRawInstructions(std::vector<std::pair<const MCExp
 }
 
 void X86AsmParser::onLabelParsed(MCSymbol *Symbol) {
-   if (isSandboxSWCFI() && Symbol->isInSection() && !Symbol->isTemporary()) {
+   if (isSandboxCFI() && Symbol->isInSection() && !Symbol->isTemporary()) {
      MCSection &Section = Symbol->getSection();
      if (Section.getName().starts_with(".text")) {
        EmitENDBR64AfterLabel = true;

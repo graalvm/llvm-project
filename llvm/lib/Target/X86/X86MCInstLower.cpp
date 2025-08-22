@@ -2502,10 +2502,10 @@ void X86AsmPrinter::emitInstruction(const MachineInstr *MI) {
 }
 
 
-bool isSandboxSWCFI();
+bool isSandboxCFI();
 
 void X86AsmPrinter::CallEmitted(MCInst &Inst) {
-   if (!isSandboxSWCFI()) return;
+   if (!isSandboxCFI()) return;
 
    // Some pseudinstructions, such as TlsAddr, are lowered to calls.  In these cases 
    // the X86SandboxPass cannot detect the call (which is emiited later). Therefore 

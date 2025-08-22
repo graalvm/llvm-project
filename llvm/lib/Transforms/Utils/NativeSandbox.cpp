@@ -107,7 +107,7 @@ static CallInst* insertSandboxCFI(Function &F, IRBuilder<> &Builder, Value *endb
     return Builder.CreateCall(sandbox_cfi_instr, { endbrPtr });
 }
 
-static bool callNeedsSwcfi(CallBase *CB, Function &F) {
+static bool callNeedsCFI(CallBase *CB, Function &F) {
     if (CB->isIndirectCall()) {
         return true;
     }
@@ -116,8 +116,8 @@ static bool callNeedsSwcfi(CallBase *CB, Function &F) {
         if (C->isManifestConstant()) {
             // direct call to constant absolute address
             // - probably an attempt to manually jump into vsyscall or non-relocatable code
-            // - not of much use, but let's still generate valid SWCFI code (note that the purpose of this is just
-            //   to satisfy the SWCFI requirements statically - this will fail at runtime - at least for vsyscall)
+            // - not of much use, but let's still generate valid CFI code (note that the purpose of this is just
+            //   to satisfy the CFI requirements statically - this will fail at runtime - at least for vsyscall)
             F.getContext().diagnose(DiagnosticInfoUnsupported(F, "call to hardcoded address", CB->getDebugLoc(), DS_Warning));
             return true;
         }
@@ -136,9 +136,6 @@ PreservedAnalyses NativeSandboxPass::run(Function &F,
         FunctionAnalysisManager &AM) {
     LoadInst *poll_page_addr = NULL;
     bool ignoredForPolling = isIgnoredForPolling(*F.getParent()) || isIgnoredForPolling(F);
-
-    // force add the extern return thunk (rustc does not add it for the main stub function)
-    F.addFnAttr(llvm::Attribute::FnRetThunkExtern);
 
     NativeTraceModeEnum TraceMode = getTraceNativeSandbox(F);
     for (BasicBlock &B : F) {
@@ -165,9 +162,9 @@ PreservedAnalyses NativeSandboxPass::run(Function &F,
                 // We know we've encountered some kind of call instruction (call,
                 // invoke, or callbr), so we need to determine if it's a call to
                 // the function pointed to by m_func or not.
-                if (callNeedsSwcfi(CB, F)) {
+                if (callNeedsCFI(CB, F)) {
                     if (TraceMode) {
-                      errs() << "[Native] [" << F.getName() << "] needs SWCFI\n";
+                      errs() << "[Native] [" << F.getName() << "] needs CFI\n";
                     }
                     IRBuilder<> Builder(CB);
 
