@@ -1,7 +1,8 @@
 suite = {
     "mxversion": "7.58.3",
-    "name": "llvm-project",
+    "name": "build-sandbox-llvm",
     "versionConflictResolution" : "latest",
+    "ignore_suite_commit_info": True,
 
     "imports" : {
         "suites" : [
@@ -22,7 +23,7 @@ suite = {
             "class" : "CMakeNinjaProject",
             "vpath" : True,
             "subDir" : "src",
-            "sourceDir" : "<path:llvm-project>",
+            "sourceDir" : "<path:build-sandbox-llvm>/..",
             "cmakeSubdir" : "llvm",
             "ninja_install_targets" : ["install"],
             "symlinkSource" : True,
@@ -39,7 +40,7 @@ suite = {
                 # avoid putting the URL of the CI's git mirror into the version string
                 "LLVM_FORCE_VC_REPOSITORY": "https://github.com/graalvm/llvm-project.git",
                 # if we override the repository, the autodetection of the revision gets turned off, so do it manually here
-                "LLVM_FORCE_VC_REVISION": "<suite-version:llvm-project>",
+                "LLVM_FORCE_VC_REVISION": "<suite-version:build-sandbox-llvm>",
 
                 # fortran: since musl does not have proper support for float128 we disable it for the moment
                 "LLVM_ENABLE_PROJECTS": "clang;lld;flang",
