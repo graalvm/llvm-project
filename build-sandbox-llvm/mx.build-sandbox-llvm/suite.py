@@ -2,6 +2,7 @@ suite = {
     "mxversion": "7.58.3",
     "name": "build-sandbox-llvm",
     "versionConflictResolution" : "latest",
+    "ignore_suite_commit_info": True,
 
     "imports" : {
         "suites" : [
