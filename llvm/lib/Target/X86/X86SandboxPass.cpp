@@ -89,11 +89,11 @@ bool isSandboxCFI() {
 }
 
 bool isSandboxHWCFI() {
-	return SandboxCFIMode == SandboxModeEnum::HWCFI;
+    return SandboxCFIMode == SandboxModeEnum::HWCFI;
 }
 
 bool isSandboxSWCFI() {
-	return SandboxCFIMode == SandboxModeEnum::SWCFI;
+    return SandboxCFIMode == SandboxModeEnum::SWCFI;
 }
 
 namespace {
@@ -187,6 +187,38 @@ static bool mayBeSpilledAddrReload(MachineInstr &MI) {
 }
 #endif
 
+static void insertSWCFIpattern(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI, const DebugLoc &DL, const TargetInstrInfo *TII, unsigned BranchTargetReg, MachineBasicBlock *trapMBB) {
+    bool r11IsBase = BranchTargetReg == X86::R11;
+    Register CompareReg = r11IsBase ? X86::R12 : X86::R11;
+
+    if (r11IsBase) {
+        // R12 must be saved as it is not a temporary register as opposed to R11
+        BuildMI(MBB, MBBI, DL, TII->get(X86::PUSH64r)).addReg(X86::R12);
+    }
+
+    BuildMI(MBB, MBBI, DL, TII->get(X86::MOV64rr)).addReg(CompareReg).addReg(BranchTargetReg);
+    BuildMI(MBB, MBBI, DL, TII->get(X86::MOV32rm), CompareReg)
+        .addReg(CompareReg)     // Base
+        .addImm(32)            // Scale
+        .addReg(0)             // Index
+        .addImm(0)             // Displacement
+        .addReg(0)             // Segment
+        ;
+
+    BuildMI(MBB, MBBI, DL, TII->get(X86::ADD32ri), CompareReg)
+        .addReg(CompareReg)
+        .addImm(0x05e1f00d); // -ENDBR64
+
+    if (r11IsBase) {
+        // Restore R12
+        // POP affects no flags, so the JE should work
+        BuildMI(MBB, MBBI, DL, TII->get(X86::POP64r)).addReg(X86::R12);
+    }
+
+    MBB.addSuccessor(trapMBB);
+    BuildMI(MBB, MBBI, DL, TII->get(X86::JCC_1)).addMBB(trapMBB).addImm(X86::COND_NE);
+}
+
 bool X86SandboxPass::runOnMachineFunction(
         MachineFunction &MF) {
     LLVM_DEBUG(dbgs() << "***** " << getPassName() << " : " << MF.getName()
@@ -204,8 +236,18 @@ bool X86SandboxPass::runOnMachineFunction(
     auto &RDA = getAnalysis<ReachingDefAnalysis>();
 #endif
 
-    bool Modified = false;
     X86TraceModeEnum TraceMode = getTraceX86Sandbox(MF);
+
+    SmallVector<MachineInstr *, 16> Rets;
+
+    // Create a block for the CFI trap branch shared by all SW-CFI patterns in the function
+    if (SandboxCFIMode == SandboxModeEnum::SWCFI) {
+        trapMBB = MF.CreateMachineBasicBlock();
+        trapMBB->setIsEHPad(true); // This prevents from getting "Undefined temporary symbol .LBB"
+        // error when compiling  no-return functions
+        BuildMI(trapMBB, DebugLoc(), TII->get(X86::INT3));
+        MF.push_back(trapMBB);
+    }
 
     for (auto &MBB : MF) {
 
@@ -214,30 +256,31 @@ bool X86SandboxPass::runOnMachineFunction(
         }
 
         for (auto MBBI = MBB.begin(); MBBI != MBB.end(); ++MBBI) {
-            MachineInstr &MI = *MBBI;
-            DILocation *DL = MI.getDebugLoc();
-            int Opc = MI.getOpcode();
+            DILocation *DL = MBBI->getDebugLoc();
 
             if (TraceMode == X86TraceModeEnum::FUNC) {
               errs() << "[X86] [" << MF.getName() << "] ";
-              MI.print(errs());
+              MBBI->print(errs());
             }
 
-            if (SandboxCFIMode == SandboxModeEnum::SWCFI) {
+            if (isIndirectCallOrBranch(*MBBI)) {
+                MachineOperand &Base = MBBI->getOperand(0);
 
-                if (isIndirectCallOrBranch(MI)) {
-                    MachineOperand &Base = MI.getOperand(0);
+                if (SandboxCFIMode == SandboxModeEnum::SWCFI) {
+                    if (TraceMode != X86TraceModeEnum::NONE) {
+                      errs() << "[X86] [SandboxPass] : adding SW CFI\n";
+                    }
 
 #ifdef VERIFY_SANDBOX
                     SmallPtrSet<MachineInstr *, 1> defMIs;
-                    RDA.getGlobalReachingDefs(&MI, Base.getReg().asMCReg(), defMIs);
+                    RDA.getGlobalReachingDefs(&*MBBI, Base.getReg().asMCReg(), defMIs);
 
                     for (auto *defMI : defMIs) {
                         if (defMI->getOpcode() != X86::X86_sandboxcfi && !mayBeSpilledAddrReload(*defMI)) {
                             errs() << "------------------------------------[ X86SandboxPass ]------------------------------------\n";
                             errs() << MF.getName() << "\n";
                             errs() << "indirect call/jump instruction uses value not passed through X86_sandboxcfi\n";
-                            MI.getDebugLoc().print(errs());
+                            MBBI->getDebugLoc().print(errs());
                             errs() << "\n";
                             defMI->print(errs());
                             errs() << "------------------------------------------------------------------------------------------\n";
@@ -246,74 +289,55 @@ bool X86SandboxPass::runOnMachineFunction(
                     }
 #endif
 
-                    bool r11IsBase = Base.getReg().id() == X86::R11;
-                    Register TargetReg = r11IsBase ? X86::R12 : X86::R11;
-
-                    if (r11IsBase) {
-                        // R12 must be saved as it is not a temporary register as opposed to R11
-                        BuildMI(MBB, MBBI, DL, TII->get(X86::PUSH64r)).addReg(X86::R12);
-                    }
-
-                    BuildMI(MBB, MI, DL, TII->get(X86::MOV64rr)).addReg(TargetReg).addReg(Base.getReg());
-                    BuildMI(MBB, MI, DL, TII->get(X86::MOV32rm), TargetReg)
-                        .addReg(TargetReg)     // Base
-                        .addImm(32)            // Scale
-                        .addReg(0)             // Index
-                        .addImm(0)             // Displacement
-                        .addReg(0)             // Segment
-                        ;
-
-                    BuildMI(MBB, MBBI, DL, TII->get(X86::ADD32ri), TargetReg)
-                        .addReg(TargetReg)
-                        .addImm(0x05e1f00d); // -ENDBR64
-
-                    if (r11IsBase) {
-                        // Restore R12
-                        // POP affects no flags, so the JE should work
-                        BuildMI(MBB, MBBI, DL, TII->get(X86::POP64r)).addReg(X86::R12);
-                    }
-
-                    // Create lazily a block for the CFI trap branch shared by all SW-CFI pattern instances
-                    // in the function
-                    if (!trapMBB) {
-                        trapMBB = MF.CreateMachineBasicBlock();
-                        trapMBB->setIsEHPad(true); // This prevents from getting "Undefined temporary symbol .LBB"
-                        // error when compiling  no-return functions
-                        BuildMI(trapMBB, DL, TII->get(X86::INT3));
-                        MF.push_back(trapMBB);
-                    }
-
-                    MBB.addSuccessor(trapMBB);
-                    BuildMI(MBB, MBBI, DL, TII->get(X86::JCC_1)).addMBB(trapMBB).addImm(X86::COND_NE);
-
-                    Modified = true;
+                    insertSWCFIpattern(MBB, MBBI, DL, TII, Base.getReg().id(), trapMBB);
                 }
 
-                // Here, the after-call ENDBR64 used to be inserted. But as it could not capture all calls, the code
-                // was moved to X86MCInstLower.cpp
-
+                if (SandboxCFIMode == SandboxModeEnum::HWCFI) {
+                    if (TraceMode != X86TraceModeEnum::NONE) {
+                      errs() << "[X86] [SandboxPass] : adding HW CFI\n";
+                    }
+                    // use test instruction to add a data dependency on the branch target to force MPK evaluation
+                    BuildMI(MBB, MBBI, DL, TII->get(X86::TEST64mr)).addReg(Base.getReg()).addImm(64).addReg(0).addImm(0).addReg(0).addReg(Base.getReg());
+                }
             }
 
-            switch (Opc) {
+            switch (MBBI->getOpcode()) {
                 case X86::X86_sandboxcfi: {
 
                     // This pseudo-instruction serves to ensure that only register-based indirect call/jmp instructions are used (i.e. no memory-based)
                     // thanks to the pass-thru return value of this instruction used as the target address of the call/jmp.
 
                     // Copy the target address register to the return register if the two differ
-                    Register TargetPtrReg = MI.getOperand(1).getReg();
-                    Register ReturnReg = MI.getOperand(0).getReg();
+                    Register TargetPtrReg = MBBI->getOperand(1).getReg();
+                    Register ReturnReg = MBBI->getOperand(0).getReg();
                     if (TargetPtrReg != ReturnReg) {
-                        BuildMI(MBB, MI, DL, TII->get(X86::MOV64rr), ReturnReg).addReg(TargetPtrReg);
+                        BuildMI(MBB, MBBI, DL, TII->get(X86::MOV64rr), ReturnReg).addReg(TargetPtrReg);
                     }
 
-                    Modified = true;
                     break;
                 }
                 case X86::X86_sandboxpoll: {
                     // The polling mechanism is not used yet in GraalOS, so this branch should not be reached
-                    BuildMI(MBB, MI, DL, TII->get(X86::NOOP)).addRegMask(RI.getNoPreservedMask());
-                    Modified = true;
+                    BuildMI(MBB, MBBI, DL, TII->get(X86::NOOP)).addRegMask(RI.getNoPreservedMask());
+                    break;
+                }
+                case X86::RET64: {
+                    BuildMI(MBB, MBBI, DL, TII->get(X86::POP64r)).addReg(X86::R11);
+                    if (SandboxCFIMode == SandboxModeEnum::HWCFI) {
+                        BuildMI(MBB, MBBI, DL, TII->get(X86::TEST64mr))
+                            .addReg(X86::R11)    // Base register for memory address
+                            .addImm(64)      // Scale for index*scale addressing
+                            .addReg(0)   // Index register
+                            .addImm(0)       // Displacement
+                            .addReg(0)     // Segment register (usually 0)
+                            .addReg(X86::R11);    // Register operand to test against
+                    }
+                    if (SandboxCFIMode == SandboxModeEnum::SWCFI) {
+                        insertSWCFIpattern(MBB, MBBI, DL, TII, X86::R11, trapMBB);
+                    }
+                    BuildMI(MBB, MBBI, DL, TII->get(X86::JMP64r)).addReg(X86::R11);
+                    // collect returns
+                    Rets.push_back(&*MBBI);
                     break;
                 }
                 default:
@@ -322,7 +346,10 @@ bool X86SandboxPass::runOnMachineFunction(
         }
     }
 
-    return Modified;
+    for (MachineInstr *Ret : Rets)
+        Ret->eraseFromParent();
+
+    return true;
 }
 
 INITIALIZE_PASS_BEGIN(X86SandboxPass, DEBUG_TYPE,

@@ -1163,20 +1163,20 @@ void X86_64::relocateAlloc(InputSectionBase &sec, uint8_t *buf) const {
 }
 
 namespace {
-class Sandbox_X86_64 : public X86_64 {
+class SWSandbox_X86_64 : public X86_64 {
 public:
-  Sandbox_X86_64(Ctx &);
+  SWSandbox_X86_64(Ctx &);
   void writePltHeader(uint8_t *buf) const override;
   void writePlt(uint8_t *buf, const Symbol &sym,
                 uint64_t pltEntryAddr) const override;
 };
 } // namespace
 
-Sandbox_X86_64::Sandbox_X86_64(Ctx &ctx) : X86_64(ctx) {
+SWSandbox_X86_64::SWSandbox_X86_64(Ctx &ctx) : X86_64(ctx) {
     pltEntrySize = 0x20;
 }
 
-void Sandbox_X86_64::writePltHeader(uint8_t *buf) const {
+void SWSandbox_X86_64::writePltHeader(uint8_t *buf) const {
   // PLT header should not be entered when using MUSL as it initializes got.plt 
   // entries eagerily. The HLT instructions is inserted as an assertion of
   // this fact.
@@ -1188,7 +1188,7 @@ void Sandbox_X86_64::writePltHeader(uint8_t *buf) const {
   memcpy(buf, pltData, sizeof(pltData));
 }
 
-void Sandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
+void SWSandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
                       uint64_t pltEntryAddr) const {
   const uint8_t inst[] = {
       0xf3, 0x0f, 0x1e, 0xfa,          	                // endbr64 
@@ -1200,6 +1200,47 @@ void Sandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
       0x59,                   	                        // pop    %rcx
       0x41, 0xff, 0xe3,             	                // jmpq   *%r11
       0xcc,                   	                        // int3   
+      0x90, 0x90, 0x90, 0x90,                           // nop; padding
+  };
+  memcpy(buf, inst, sizeof(inst));
+
+  write32le(buf + 7, sym.getGotPltVA(ctx) - pltEntryAddr - 11);
+}
+
+namespace {
+class HWSandbox_X86_64 : public X86_64 {
+public:
+  HWSandbox_X86_64(Ctx &);
+  void writePltHeader(uint8_t *buf) const override;
+  void writePlt(uint8_t *buf, const Symbol &sym,
+                uint64_t pltEntryAddr) const override;
+};
+} // namespace
+
+HWSandbox_X86_64::HWSandbox_X86_64(Ctx &ctx) : X86_64(ctx) {
+    pltEntrySize = 0x16;
+}
+
+void HWSandbox_X86_64::writePltHeader(uint8_t *buf) const {
+  // PLT header should not be entered when using MUSL as it initializes got.plt 
+  // entries eagerly. The HLT instruction is inserted as an assertion of
+  // this fact.
+  const uint8_t pltData[] = {
+      0xf4, 0x90, 0x90, 0x90, 0x90, 0x90, // hlt, nop, ...
+      0x90, 0x90, 0x90, 0x90, 0x90, 0x90, // 
+      0x90, 0x90, 0x90, 0x90, //
+  };
+  memcpy(buf, pltData, sizeof(pltData));
+}
+
+void HWSandbox_X86_64::writePlt(uint8_t *buf, const Symbol &sym,
+                      uint64_t pltEntryAddr) const {
+  const uint8_t inst[] = {
+      0xf3, 0x0f, 0x1e, 0xfa,                           // endbr64 
+      0x4c, 0x8b, 0x1d, 0x00, 0x00, 0x00, 0x00,   // mov    0x0(%rip),%r11
+      0x4d, 0x85, 0x1b,                              // test %r11, 0x0(%r11)
+      0x41, 0xff, 0xe3,                               // jmpq   *%r11
+      0xcc,                                             // int3   
       0x90, 0x90, 0x90, 0x90,                           // nop; padding
   };
   memcpy(buf, inst, sizeof(inst));
@@ -1385,10 +1426,15 @@ void elf::setX86_64TargetInfo(Ctx &ctx) {
     return;
   }
 
-  if (ctx.arg.SandboxMode) {
-    // TODO: Implement HW CFI PLTs, as there is on SW CFI mode implemented currently.
-    ctx.target.reset(new Sandbox_X86_64(ctx));
-    return;
+  switch (ctx.arg.SandboxMode) {
+    case Config::SandboxModeEnum::SWCFI:
+      ctx.target.reset(new SWSandbox_X86_64(ctx));
+      return;
+    case Config::SandboxModeEnum::HWCFI:
+      ctx.target.reset(new HWSandbox_X86_64(ctx));
+      return;
+    default:
+      break;
   }
 
   if (ctx.arg.andFeatures & GNU_PROPERTY_X86_FEATURE_1_IBT)
