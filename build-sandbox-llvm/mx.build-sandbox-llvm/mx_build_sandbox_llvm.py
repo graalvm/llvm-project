@@ -219,14 +219,11 @@ def publish_cache(args):
     mx.log(f"Compressing {d.name}")
     file = d.prePush(d.path)
 
-    mx.log("Checking for pre-existing upload")
     selector = d.get_artifact_selector()
-    info = _query_artifact_info(**selector)
-    if len(info) > 0:
-        mx.log(f"Artifact already exists: {info[0]['artifactName']}\nSkipping upload.")
-        return
 
     upload_cmd = [artifact_uploader, file, d.artifactName.format(**selector), "graal",
+                  "--skip-existing",
+                  "--sync-commit",
                   "--lifecycle", "cache",
                   "--artifact-type", selector['artifactType'],
                   "--revision", selector['revision']
