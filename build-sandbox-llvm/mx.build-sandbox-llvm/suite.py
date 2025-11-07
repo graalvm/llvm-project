@@ -49,6 +49,7 @@ suite = {
 
 
                 "LLVM_ENABLE_PROJECTS": "clang;lld;flang",
+                "LLVM_ENABLE_RUNTIMES": "compiler-rt",
 
                 "LLVM_TARGETS_TO_BUILD": "Native",
                 "LLVM_LINK_LLVM_DYLIB": "YES",
@@ -59,6 +60,16 @@ suite = {
 
                 # reduce dependencies, make more system independent
                 "LLVM_ENABLE_LIBXML2": "NO",
+
+                "COMPILER_RT_BUILD_STANDALONE_LIBATOMIC": "NO",
+
+                "COMPILER_RT_BUILD_XRAY": "NO",
+                "COMPILER_RT_BUILD_LIBFUZZER": "NO",
+                "COMPILER_RT_BUILD_PROFILE": "NO",
+                "COMPILER_RT_BUILD_MEMPROF": "NO",
+                "COMPILER_RT_BUILD_ORC": "NO",
+                "COMPILER_RT_BUILD_SANITIZERS": "NO",
+                "COMPILER_RT_BUILD_CTX_PROFILE": "NO",
             },
             "clangFormat" : False,
             "buildDependencies" : [ "sdk:LLVM_TOOLCHAIN" ],
