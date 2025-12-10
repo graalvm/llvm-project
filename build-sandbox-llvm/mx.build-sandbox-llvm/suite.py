@@ -42,14 +42,14 @@ suite = {
                 # if we override the repository, the autodetection of the revision gets turned off, so do it manually here
                 "LLVM_FORCE_VC_REVISION": "<suite-version:build-sandbox-llvm>",
 
-                # fortran: since musl does not have proper support for float128 we disable it for the moment
-                "LLVM_ENABLE_PROJECTS": "clang;lld;flang",
-                "LLVM_ENABLE_RUNTIMES": "compiler-rt;libunwind",
-                "BUILTINS_CMAKE_ARGS": "-DCMAKE_C_FLAGS=-sandbox -DWITHOUT_FLOAT128;-DCMAKE_CXX_FLAGS=-sandbox -DWITHOUT_FLOAT128",
-
                 # Linking against libstdc++ is necessary, otherwise cmake configure tests are failing.
-                # The compiler-rt doesn't actually use it, and it's going to be replaced with a musl-based one later.
-                "RUNTIMES_CMAKE_ARGS": "-DCMAKE_C_FLAGS=-sandbox -DWITHOUT_FLOAT128;-DCMAKE_CXX_FLAGS=-sandbox -stdlib=libstdc++ -DWITHOUT_FLOAT128",
+                # fortran: since musl does not have proper support for float128 we disable it for the moment
+                "RUNTIMES_CMAKE_ARGS": "-DCMAKE_C_FLAGS=-DWITHOUT_FLOAT128;-DCMAKE_CXX_FLAGS=-stdlib=libstdc++ -DWITHOUT_FLOAT128",
+                "BUILTINS_CMAKE_ARGS": "-DCMAKE_C_FLAGS=-DWITHOUT_FLOAT128;-DCMAKE_CXX_FLAGS= -DWITHOUT_FLOAT128",
+
+
+                "LLVM_ENABLE_PROJECTS": "clang;lld;flang",
+                "LLVM_ENABLE_RUNTIMES": "compiler-rt",
 
                 "LLVM_TARGETS_TO_BUILD": "Native",
                 "LLVM_LINK_LLVM_DYLIB": "YES",
@@ -58,11 +58,9 @@ suite = {
                 "CLANG_DEFAULT_RTLIB": "compiler-rt",
                 "CLANG_DEFAULT_CXX_STDLIB": "libc++",
 
-                "COMPILER_RT_USE_BUILTINS_LIBRARY": "YES",
-                "COMPILER_RT_USE_LLVM_UNWINDER": "YES",
+                # reduce dependencies, make more system independent
+                "LLVM_ENABLE_LIBXML2": "NO",
 
-                "COMPILER_RT_BUILD_BUILTINS": "YES",
-                "COMPILER_RT_BUILD_CRT": "YES",
                 "COMPILER_RT_BUILD_STANDALONE_LIBATOMIC": "NO",
 
                 "COMPILER_RT_BUILD_XRAY": "NO",
@@ -72,9 +70,6 @@ suite = {
                 "COMPILER_RT_BUILD_ORC": "NO",
                 "COMPILER_RT_BUILD_SANITIZERS": "NO",
                 "COMPILER_RT_BUILD_CTX_PROFILE": "NO",
-
-                # reduce dependencies, make more system independent
-                "LLVM_ENABLE_LIBXML2": "NO",
             },
             "clangFormat" : False,
             "buildDependencies" : [ "sdk:LLVM_TOOLCHAIN" ],
