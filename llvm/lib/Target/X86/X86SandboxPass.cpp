@@ -187,13 +187,15 @@ static bool mayBeSpilledAddrReload(MachineInstr &MI) {
 }
 #endif
 
-static void insertSWCFIpattern(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI, const DebugLoc &DL, const TargetInstrInfo *TII, unsigned BranchTargetReg, MachineBasicBlock *trapMBB) {
+static void insertSWCFIpattern(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI, const DebugLoc &DL, const TargetInstrInfo *TII, unsigned BranchTargetReg, 
+                               MachineBasicBlock *trapMBB, bool preserveR11) {
     bool r11IsBase = BranchTargetReg == X86::R11;
     Register CompareReg = r11IsBase ? X86::R12 : X86::R11;
 
-    if (r11IsBase) {
-        // R12 must be saved as it is not a temporary register as opposed to R11
-        BuildMI(MBB, MBBI, DL, TII->get(X86::PUSH64r)).addReg(X86::R12);
+    if (r11IsBase || preserveR11) {
+        // r11IsBase==true means that R12 is used as CompareReg. It must be saved as it is not a temporary register 
+        // as opposed to R11. R11 is saved only if indicated by preserveR11 (i.e. for indirect jumps only except a return one).
+        BuildMI(MBB, MBBI, DL, TII->get(X86::PUSH64r)).addReg(CompareReg);
     }
 
     BuildMI(MBB, MBBI, DL, TII->get(X86::MOV64rr)).addReg(CompareReg).addReg(BranchTargetReg);
@@ -209,10 +211,10 @@ static void insertSWCFIpattern(MachineBasicBlock &MBB, MachineBasicBlock::iterat
         .addReg(CompareReg)
         .addImm(0x05e1f00d); // -ENDBR64
 
-    if (r11IsBase) {
-        // Restore R12
+    if (r11IsBase || preserveR11) {
+        // Restore R12/R11
         // POP affects no flags, so the JE should work
-        BuildMI(MBB, MBBI, DL, TII->get(X86::POP64r)).addReg(X86::R12);
+        BuildMI(MBB, MBBI, DL, TII->get(X86::POP64r)).addReg(CompareReg);
     }
 
     MBB.addSuccessor(trapMBB);
@@ -289,7 +291,7 @@ bool X86SandboxPass::runOnMachineFunction(
                     }
 #endif
 
-                    insertSWCFIpattern(MBB, MBBI, DL, TII, Base.getReg().id(), trapMBB);
+                    insertSWCFIpattern(MBB, MBBI, DL, TII, Base.getReg().id(), trapMBB, !MBBI->getDesc().isCall());
                 }
 
                 if (SandboxCFIMode == SandboxModeEnum::HWCFI) {
@@ -333,7 +335,7 @@ bool X86SandboxPass::runOnMachineFunction(
                             .addReg(X86::R11);    // Register operand to test against
                     }
                     if (SandboxCFIMode == SandboxModeEnum::SWCFI) {
-                        insertSWCFIpattern(MBB, MBBI, DL, TII, X86::R11, trapMBB);
+                        insertSWCFIpattern(MBB, MBBI, DL, TII, X86::R11, trapMBB, false);
                     }
                     BuildMI(MBB, MBBI, DL, TII->get(X86::JMP64r)).addReg(X86::R11);
                     // collect returns
