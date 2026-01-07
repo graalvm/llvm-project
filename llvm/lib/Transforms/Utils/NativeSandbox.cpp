@@ -104,6 +104,7 @@ static void insertSandboxPoll(Function &F, IRBuilder<> &Builder, LoadInst *poll_
 static CallInst* insertSandboxCFI(Function &F, IRBuilder<> &Builder, Value *endbrPtr) {
     Module *M = F.getParent();
     Function *sandbox_cfi_instr = M->getFunction("llvm.sandboxcfi.p0.p0");
+    F.addFnAttr("has-cfi", "true");
     return Builder.CreateCall(sandbox_cfi_instr, { endbrPtr });
 }
 

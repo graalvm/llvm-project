@@ -1569,6 +1569,7 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
   X86MachineFunctionInfo *X86FI = MF.getInfo<X86MachineFunctionInfo>();
   uint64_t MaxAlign = calculateMaxStackAlign(MF); // Desired stack alignment.
   uint64_t StackSize = MFI.getStackSize(); // Number of bytes to allocate.
+  bool HasCFI = MF.getFunction().getFnAttribute("has-cfi").isValid();
   bool IsFunclet = MBB.isEHFuncletEntry();
   EHPersonality Personality = EHPersonality::Unknown;
   if (Fn.hasPersonalityFn())
@@ -1701,7 +1702,11 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
   // pointer, calls, or dynamic alloca then we do not need to adjust the
   // stack pointer (we fit in the Red Zone). We also check that we don't
   // push and pop from the stack.
-  if (has128ByteRedZone(MF) && !TRI->hasStackRealignment(MF) &&
+  //
+  // Also, the function must not have any CFI pattern as it may push
+  // a register on the stack and thus potentially corrupt local variables
+  // stored in the Red Zone.
+  if (!HasCFI && has128ByteRedZone(MF) && !TRI->hasStackRealignment(MF) &&
       !MFI.hasVarSizedObjects() &&             // No dynamic alloca.
       !MFI.adjustsStack() &&                   // No calls.
       !EmitStackProbeCall &&                   // No stack probes.
