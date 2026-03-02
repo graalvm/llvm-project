@@ -36,6 +36,7 @@ suite = {
                 "CMAKE_BUILD_TYPE": "Release",
                 "CMAKE_INSTALL_PREFIX" : "usr",
                 "CMAKE_C_COMPILER" : "<path:sdk:LLVM_TOOLCHAIN>/bin/clang",
+                "CMAKE_CXX_COMPILER" : "<path:sdk:LLVM_TOOLCHAIN>/bin/clang++",
 
                 # avoid putting the URL of the CI's git mirror into the version string
                 "LLVM_FORCE_VC_REPOSITORY": "https://github.com/graalvm/llvm-project.git",
