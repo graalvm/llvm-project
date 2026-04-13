@@ -43,7 +43,20 @@ using namespace llvm::opt;
 using tools::addMultilibFlag;
 using tools::addPathIfExists;
 
+static StringRef getTripleDerivedSandboxMode(const llvm::Triple &Triple) {
+  switch (Triple.getEnvironment()) {
+  case llvm::Triple::MuslSWCFI:
+    return "swcfi";
+  case llvm::Triple::MuslHWCFI:
+    return "hwcfi";
+  default:
+    return {};
+  }
+}
+
 static bool forwardToGCC(const Option &O) {
+  if (O.matches(options::OPT_Sandbox_EQ))
+    return false;
   // LinkerInput options have been forwarded. Don't duplicate.
   if (O.hasFlag(options::LinkerInput))
     return false;
@@ -541,6 +554,13 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   bool NeedsSanitizerDeps = addSanitizerRuntimes(ToolChain, Args, CmdArgs);
   bool NeedsXRayDeps = addXRayRuntime(ToolChain, Args, CmdArgs);
   addLinkerCompressDebugSectionsOption(ToolChain, Args, CmdArgs);
+
+  StringRef SandboxMode = Args.getLastArgValue(options::OPT_Sandbox_EQ);
+  if (SandboxMode.empty())
+    SandboxMode = getTripleDerivedSandboxMode(ToolChain.getTriple());
+  if (!SandboxMode.empty() && SandboxMode != "off")
+    CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + SandboxMode));
+
   AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
 
   addHIPRuntimeLibArgs(ToolChain, C, Args, CmdArgs);
