@@ -119,6 +119,34 @@ TEST(TripleTest, ParsedIDs) {
   EXPECT_EQ(Triple::Linux, T.getOS());
   EXPECT_EQ(Triple::MuslX32, T.getEnvironment());
 
+  T = Triple("x86_64-unknown-linux-musl_swcfi");
+  EXPECT_EQ(Triple::x86_64, T.getArch());
+  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
+  EXPECT_EQ(Triple::Linux, T.getOS());
+  EXPECT_EQ(Triple::MuslSWCFI, T.getEnvironment());
+  EXPECT_EQ("musl_swcfi", T.getEnvironmentName());
+
+  T = Triple("x86_64-unknown-linux-musl_hwcfi");
+  EXPECT_EQ(Triple::x86_64, T.getArch());
+  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
+  EXPECT_EQ(Triple::Linux, T.getOS());
+  EXPECT_EQ(Triple::MuslHWCFI, T.getEnvironment());
+  EXPECT_EQ("musl_hwcfi", T.getEnvironmentName());
+
+  T = Triple("x86_64-unknown-linux-musl");
+  EXPECT_EQ(Triple::x86_64, T.getArch());
+  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
+  EXPECT_EQ(Triple::Linux, T.getOS());
+  EXPECT_EQ(Triple::Musl, T.getEnvironment());
+  EXPECT_EQ("musl", T.getEnvironmentName());
+
+  T = Triple("x86_64-unknown-linux-musl-foo");
+  EXPECT_EQ(Triple::x86_64, T.getArch());
+  EXPECT_EQ(Triple::UnknownVendor, T.getVendor());
+  EXPECT_EQ(Triple::Linux, T.getOS());
+  EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
+  EXPECT_EQ("musl-foo", T.getEnvironmentName());
+
   T = Triple("x86_64-pc-hurd-gnu");
   EXPECT_EQ(Triple::x86_64, T.getArch());
   EXPECT_EQ(Triple::PC, T.getVendor());
@@ -1416,6 +1444,18 @@ TEST(TripleTest, Normalization) {
   EXPECT_EQ("unknown-unknown-linux", Triple::normalize("linux"));
 
   EXPECT_EQ("x86_64-unknown-linux-gnu", Triple::normalize("x86_64-gnu-linux"));
+  EXPECT_EQ("x86_64-unknown-linux-musl_swcfi",
+            Triple::normalize("x86_64-unknown-linux-musl_swcfi"));
+  EXPECT_EQ("x86_64-unknown-linux-musl_hwcfi",
+            Triple::normalize("x86_64-unknown-linux-musl_hwcfi"));
+  EXPECT_EQ("x86_64-unknown-linux-musl",
+            Triple::normalize("x86_64-unknown-linux-musl"));
+  EXPECT_EQ("x86_64-unknown-linux-musl_swcfi",
+            Triple::normalize("x86_64-unknown-linux-swcfi-musl"));
+  EXPECT_EQ("x86_64-unknown-linux-musl_hwcfi",
+            Triple::normalize("x86_64-unknown-linux-hwcfi-musl"));
+  EXPECT_EQ("x86_64-unknown-linux-musl-foo",
+            Triple::normalize("x86_64-unknown-linux-musl-foo"));
 
   EXPECT_EQ("a-unknown-unknown",
             Triple::normalize("a", Triple::CanonicalForm::THREE_IDENT));
@@ -1635,6 +1675,32 @@ TEST(TripleTest, Normalization) {
             Triple::normalize("wasm32-wasi")); // wasm32-unknown-wasi
   EXPECT_EQ("wasm64-unknown-wasi",
             Triple::normalize("wasm64-wasi")); // wasm64-unknown-wasi
+}
+
+TEST(TripleTest, PrintMuslSandboxEnvironmentNames) {
+  EXPECT_EQ("musl", Triple::getEnvironmentTypeName(Triple::Musl));
+  EXPECT_EQ("unknown",
+            Triple::getEnvironmentTypeName(Triple::UnknownEnvironment));
+
+  Triple T("x86_64", "unknown", "linux", "musl_swcfi");
+  EXPECT_EQ("x86_64-unknown-linux-musl_swcfi", T.str());
+  EXPECT_EQ("musl_swcfi", T.getEnvironmentName());
+  EXPECT_EQ(Triple::MuslSWCFI, T.getEnvironment());
+
+  T = Triple("x86_64", "unknown", "linux", "musl_hwcfi");
+  EXPECT_EQ("x86_64-unknown-linux-musl_hwcfi", T.str());
+  EXPECT_EQ("musl_hwcfi", T.getEnvironmentName());
+  EXPECT_EQ(Triple::MuslHWCFI, T.getEnvironment());
+
+  T = Triple("x86_64", "unknown", "linux", "musl");
+  EXPECT_EQ("x86_64-unknown-linux-musl", T.str());
+  EXPECT_EQ("musl", T.getEnvironmentName());
+  EXPECT_EQ(Triple::Musl, T.getEnvironment());
+
+  T = Triple("x86_64", "unknown", "linux", "musl-foo");
+  EXPECT_EQ("x86_64-unknown-linux-musl-foo", T.str());
+  EXPECT_EQ("musl-foo", T.getEnvironmentName());
+  EXPECT_EQ(Triple::UnknownEnvironment, T.getEnvironment());
 }
 
 TEST(TripleTest, MutateName) {
