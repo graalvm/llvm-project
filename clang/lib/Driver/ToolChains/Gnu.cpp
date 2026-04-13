@@ -43,17 +43,6 @@ using namespace llvm::opt;
 using tools::addMultilibFlag;
 using tools::addPathIfExists;
 
-static StringRef getTripleDerivedSandboxMode(const llvm::Triple &Triple) {
-  switch (Triple.getEnvironment()) {
-  case llvm::Triple::MuslSWCFI:
-    return "swcfi";
-  case llvm::Triple::MuslHWCFI:
-    return "hwcfi";
-  default:
-    return {};
-  }
-}
-
 static bool forwardToGCC(const Option &O) {
   if (O.matches(options::OPT_Sandbox_EQ))
     return false;
@@ -557,7 +546,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   StringRef SandboxMode = Args.getLastArgValue(options::OPT_Sandbox_EQ);
   if (SandboxMode.empty())
-    SandboxMode = getTripleDerivedSandboxMode(ToolChain.getTriple());
+    SandboxMode = tools::getTripleDerivedSandboxMode(ToolChain.getTriple());
   if (!SandboxMode.empty() && SandboxMode != "off")
     CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + SandboxMode));
 

@@ -148,6 +148,8 @@ llvm::StringRef getLTOParallelism(const llvm::opt::ArgList &Args,
 
 bool areOptimizationsEnabled(const llvm::opt::ArgList &Args);
 
+llvm::StringRef getTripleDerivedSandboxMode(const llvm::Triple &Triple);
+
 bool isUseSeparateSections(const llvm::Triple &Triple);
 // Parse -mtls-dialect=. Return true if the target supports both general-dynamic
 // and TLSDESC, and TLSDESC is requested.

@@ -72,17 +72,6 @@ using namespace clang::driver::tools;
 using namespace clang;
 using namespace llvm::opt;
 
-static StringRef getTripleDerivedSandboxMode(const llvm::Triple &Triple) {
-  switch (Triple.getEnvironment()) {
-  case llvm::Triple::MuslSWCFI:
-    return "swcfi";
-  case llvm::Triple::MuslHWCFI:
-    return "hwcfi";
-  default:
-    return {};
-  }
-}
-
 static void CheckPreprocessingOptions(const Driver &D, const ArgList &Args) {
   if (Arg *A = Args.getLastArg(clang::driver::options::OPT_C, options::OPT_CC,
                                options::OPT_fminimize_whitespace,
@@ -5156,7 +5145,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     SandboxMode = A->getValue();
     Args.ClaimAllArgs(options::OPT_Sandbox_EQ);
   } else {
-    SandboxMode = getTripleDerivedSandboxMode(getToolChain().getTriple());
+    SandboxMode = tools::getTripleDerivedSandboxMode(getToolChain().getTriple());
   }
 
   if (!SandboxMode.empty()) {
@@ -8888,7 +8877,7 @@ void ClangAs::ConstructJob(Compilation &C, const JobAction &JA,
 
   StringRef SandboxMode = Args.getLastArgValue(options::OPT_Sandbox_EQ);
   if (SandboxMode.empty())
-    SandboxMode = getTripleDerivedSandboxMode(getToolChain().getTriple());
+    SandboxMode = tools::getTripleDerivedSandboxMode(getToolChain().getTriple());
 
   if (!SandboxMode.empty()) {
     if (SandboxMode == "swcfi") {

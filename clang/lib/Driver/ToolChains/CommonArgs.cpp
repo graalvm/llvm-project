@@ -824,6 +824,17 @@ bool tools::isUseSeparateSections(const llvm::Triple &Triple) {
   return Triple.isPS();
 }
 
+llvm::StringRef tools::getTripleDerivedSandboxMode(const llvm::Triple &Triple) {
+  switch (Triple.getEnvironment()) {
+  case llvm::Triple::MuslSWCFI:
+    return "swcfi";
+  case llvm::Triple::MuslHWCFI:
+    return "hwcfi";
+  default:
+    return {};
+  }
+}
+
 bool tools::isTLSDESCEnabled(const ToolChain &TC,
                              const llvm::opt::ArgList &Args) {
   const llvm::Triple &Triple = TC.getEffectiveTriple();
