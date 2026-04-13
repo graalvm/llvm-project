@@ -72,6 +72,17 @@ using namespace clang::driver::tools;
 using namespace clang;
 using namespace llvm::opt;
 
+static StringRef getTripleDerivedSandboxMode(const llvm::Triple &Triple) {
+  switch (Triple.getEnvironment()) {
+  case llvm::Triple::MuslSWCFI:
+    return "swcfi";
+  case llvm::Triple::MuslHWCFI:
+    return "hwcfi";
+  default:
+    return {};
+  }
+}
+
 static void CheckPreprocessingOptions(const Driver &D, const ArgList &Args) {
   if (Arg *A = Args.getLastArg(clang::driver::options::OPT_C, options::OPT_CC,
                                options::OPT_fminimize_whitespace,
@@ -5140,24 +5151,30 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-triple");
   CmdArgs.push_back(Args.MakeArgString(TripleStr));
 
+  StringRef SandboxMode;
   if (const Arg *A = Args.getLastArg(options::OPT_Sandbox_EQ)) {
-    CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + A->getValue()));
-    StringRef sandboxMode = A->getValue();
-    if (sandboxMode == "swcfi") {
+    SandboxMode = A->getValue();
+    Args.ClaimAllArgs(options::OPT_Sandbox_EQ);
+  } else {
+    SandboxMode = getTripleDerivedSandboxMode(getToolChain().getTriple());
+  }
+
+  if (!SandboxMode.empty()) {
+    CmdArgs.push_back(Args.MakeArgString(Twine("-sandbox=") + SandboxMode));
+    if (SandboxMode == "swcfi") {
         CmdArgs.push_back(Args.MakeArgString("-fcf-protection"));
         CmdArgs.push_back(Args.MakeArgString("-fno-jump-tables"));
         CmdArgs.push_back(Args.MakeArgString("-mllvm"));
         CmdArgs.push_back(Args.MakeArgString("-sandbox-cfi-mode=swcfi"));
         CmdArgs.push_back(Args.MakeArgString("-D__SANDBOX_CFI__"));
         CmdArgs.push_back(Args.MakeArgString("-D__SANDBOX_SWCFI__"));
-    } else if (sandboxMode == "hwcfi") {
+    } else if (SandboxMode == "hwcfi") {
         CmdArgs.push_back(Args.MakeArgString("-fcf-protection"));
         CmdArgs.push_back(Args.MakeArgString("-mllvm"));
         CmdArgs.push_back(Args.MakeArgString("-sandbox-cfi-mode=hwcfi"));
         CmdArgs.push_back(Args.MakeArgString("-D__SANDBOX_CFI__"));
         CmdArgs.push_back(Args.MakeArgString("-D__SANDBOX_HWCFI__"));
     }
-    Args.ClaimAllArgs(options::OPT_Sandbox_EQ);
   }
 
   if (const Arg *MJ = Args.getLastArg(options::OPT_MJ)) {
@@ -8869,16 +8886,18 @@ void ClangAs::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
 
-  if (const Arg *A = Args.getLastArg(options::OPT_Sandbox_EQ)) {
-    StringRef sandboxMode = A->getValue();
-    if (sandboxMode == "swcfi") {
+  StringRef SandboxMode = Args.getLastArgValue(options::OPT_Sandbox_EQ);
+  if (SandboxMode.empty())
+    SandboxMode = getTripleDerivedSandboxMode(getToolChain().getTriple());
+
+  if (!SandboxMode.empty()) {
+    if (SandboxMode == "swcfi") {
         CmdArgs.push_back(Args.MakeArgString("-mllvm"));
         CmdArgs.push_back(Args.MakeArgString("-sandbox-cfi-mode=swcfi"));
-    } else if (sandboxMode == "hwcfi") {
+    } else if (SandboxMode == "hwcfi") {
         CmdArgs.push_back(Args.MakeArgString("-mllvm"));
         CmdArgs.push_back(Args.MakeArgString("-sandbox-cfi-mode=hwcfi"));
     }
-    Args.ClaimAllArgs(options::OPT_Sandbox_EQ);
   }
 
 
