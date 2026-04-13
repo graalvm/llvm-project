@@ -55,6 +55,7 @@
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/IRObjectFile.h"
 #include "llvm/Remarks/HotnessThresholdParser.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/Compression.h"
@@ -81,6 +82,30 @@ using namespace lld::elf;
 
 static void setConfigs(Ctx &ctx, opt::InputArgList &args);
 static void readConfigs(Ctx &ctx, opt::InputArgList &args);
+
+static std::optional<Config::SandboxModeEnum>
+getTripleDerivedSandboxMode(const llvm::Triple &triple) {
+  if (triple.getArch() != llvm::Triple::x86_64 || !triple.isOSLinux())
+    return std::nullopt;
+
+  if (triple.getEnvironment() == llvm::Triple::MuslSWCFI)
+    return Config::SandboxModeEnum::SWCFI;
+  if (triple.getEnvironment() == llvm::Triple::MuslHWCFI)
+    return Config::SandboxModeEnum::HWCFI;
+  return std::nullopt;
+}
+
+static std::optional<Config::SandboxModeEnum>
+getBitcodeTripleDerivedSandboxMode(Ctx &ctx) {
+  for (BitcodeFile *file : ctx.bitcodeFiles) {
+    if (!file->obj)
+      continue;
+    if (std::optional<Config::SandboxModeEnum> mode =
+            getTripleDerivedSandboxMode(llvm::Triple(file->obj->getTargetTriple())))
+      return mode;
+  }
+  return std::nullopt;
+}
 
 ELFSyncStream elf::Log(Ctx &ctx) { return {ctx, DiagLevel::Log}; }
 ELFSyncStream elf::Msg(Ctx &ctx) { return {ctx, DiagLevel::Msg}; }
@@ -662,6 +687,11 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     createFiles(args);
     if (errCount(ctx))
       return;
+
+    if (!args.hasArg(OPT_Sandbox_EQ))
+      if (std::optional<Config::SandboxModeEnum> mode =
+              getBitcodeTripleDerivedSandboxMode(ctx))
+        ctx.arg.SandboxMode = *mode;
 
     inferMachineType();
     setConfigs(ctx, args);
@@ -1262,14 +1292,15 @@ static void readConfigs(Ctx &ctx, opt::InputArgList &args) {
       ctx.arg.bsymbolic = BsymbolicKind::All;
   }
 
+  ctx.arg.SandboxMode = Config::SandboxModeEnum::OFF;
   for (const opt::Arg *A : args.filtered(OPT_Sandbox_EQ)) {
-     StringRef ModeName = A->getValue();
-     ctx.arg.SandboxMode = llvm::StringSwitch<Config::SandboxModeEnum>(ModeName)
-                                .Case("off", Config::SandboxModeEnum::OFF)
-                                .Case("swcfi", Config::SandboxModeEnum::SWCFI)
-                                .Case("hwcfi", Config::SandboxModeEnum::HWCFI)
-                                .Default(Config::SandboxModeEnum::OFF);
-     A->claim();
+    StringRef ModeName = A->getValue();
+    ctx.arg.SandboxMode = llvm::StringSwitch<Config::SandboxModeEnum>(ModeName)
+                              .Case("off", Config::SandboxModeEnum::OFF)
+                              .Case("swcfi", Config::SandboxModeEnum::SWCFI)
+                              .Case("hwcfi", Config::SandboxModeEnum::HWCFI)
+                              .Default(Config::SandboxModeEnum::OFF);
+    A->claim();
   }
 
   ctx.arg.callGraphProfileSort = getCGProfileSortKind(ctx, args);
