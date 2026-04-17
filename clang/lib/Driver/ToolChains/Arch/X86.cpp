@@ -190,6 +190,33 @@ void x86::getX86TargetFeatures(const Driver &D, const llvm::Triple &Triple,
     SpectreOpt = options::OPT_mretpoline_external_thunk;
   }
 
+  StringRef SandboxMode;
+  StringRef SandboxOpt;
+  if (const Arg *A = Args.getLastArg(options::OPT_Sandbox_EQ)) {
+    SandboxMode = A->getValue();
+    SandboxOpt = Args.MakeArgString(A->getAsString(Args));
+  } else {
+    SandboxMode = tools::getTripleDerivedSandboxMode(Triple);
+    if (!SandboxMode.empty())
+      SandboxOpt = Args.MakeArgString(Twine("-sandbox=") + SandboxMode);
+  }
+  if (!SandboxMode.empty() && SandboxMode != "off") {
+    if (Args.hasFlag(options::OPT_mretpoline, options::OPT_mno_retpoline,
+                     false))
+      D.Diag(diag::err_drv_argument_not_allowed_with)
+          << D.getOpts().getOptionName(options::OPT_mretpoline) << SandboxOpt;
+    if (Args.hasFlag(options::OPT_mretpoline_external_thunk,
+                     options::OPT_mno_retpoline_external_thunk, false))
+      D.Diag(diag::err_drv_argument_not_allowed_with)
+          << D.getOpts().getOptionName(options::OPT_mretpoline_external_thunk)
+          << SandboxOpt;
+    if (Args.hasFlag(options::OPT_mspeculative_load_hardening,
+                     options::OPT_mno_speculative_load_hardening, false))
+      D.Diag(diag::err_drv_argument_not_allowed_with)
+          << D.getOpts().getOptionName(options::OPT_mspeculative_load_hardening)
+          << SandboxOpt;
+  }
+
   auto LVIOpt = clang::driver::options::ID::OPT_INVALID;
   if (Args.hasFlag(options::OPT_mlvi_hardening, options::OPT_mno_lvi_hardening,
                    false)) {

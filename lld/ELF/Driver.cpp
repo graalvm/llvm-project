@@ -121,6 +121,12 @@ getBitcodeTripleDerivedSandboxMode(Ctx &ctx) {
   return derivedMode;
 }
 
+static void checkRetpolinepltSandbox(Ctx &ctx) {
+  if (ctx.arg.zRetpolineplt &&
+      ctx.arg.SandboxMode != Config::SandboxModeEnum::OFF)
+    ErrAlways(ctx) << "-z retpolineplt may not be used with -sandbox";
+}
+
 ELFSyncStream elf::Log(Ctx &ctx) { return {ctx, DiagLevel::Log}; }
 ELFSyncStream elf::Msg(Ctx &ctx) { return {ctx, DiagLevel::Msg}; }
 ELFSyncStream elf::Warn(Ctx &ctx) { return {ctx, DiagLevel::Warn}; }
@@ -484,6 +490,7 @@ static void checkOptions(Ctx &ctx) {
 
   if (ctx.arg.zRetpolineplt && ctx.arg.zForceIbt)
     ErrAlways(ctx) << "-z force-ibt may not be used with -z retpolineplt";
+  checkRetpolinepltSandbox(ctx);
 
   if (ctx.arg.emachine != EM_AARCH64) {
     if (ctx.arg.zPacPlt)
@@ -3007,10 +3014,12 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // Archive members defining __wrap symbols may be extracted.
   std::vector<WrappedSymbol> wrapped = addWrappedSymbols(ctx, args);
 
-  if (!args.hasArg(OPT_Sandbox_EQ))
+  if (!args.hasArg(OPT_Sandbox_EQ)) {
     if (std::optional<Config::SandboxModeEnum> mode =
             getBitcodeTripleDerivedSandboxMode(ctx))
       ctx.arg.SandboxMode = *mode;
+    checkRetpolinepltSandbox(ctx);
+  }
   if (errCount(ctx))
     return;
 
