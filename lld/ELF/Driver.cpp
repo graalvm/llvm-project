@@ -97,14 +97,28 @@ getTripleDerivedSandboxMode(const llvm::Triple &triple) {
 
 static std::optional<Config::SandboxModeEnum>
 getBitcodeTripleDerivedSandboxMode(Ctx &ctx) {
+  BitcodeFile *firstSandboxFile = nullptr;
+  std::optional<Config::SandboxModeEnum> derivedMode;
   for (BitcodeFile *file : ctx.bitcodeFiles) {
     if (!file->obj)
       continue;
     if (std::optional<Config::SandboxModeEnum> mode =
-            getTripleDerivedSandboxMode(llvm::Triple(file->obj->getTargetTriple())))
-      return mode;
+            getTripleDerivedSandboxMode(
+                llvm::Triple(file->obj->getTargetTriple()))) {
+      if (!derivedMode) {
+        derivedMode = mode;
+        firstSandboxFile = file;
+        continue;
+      }
+      if (*derivedMode != *mode) {
+        Err(ctx) << "incompatible sandbox modes derived from bitcode target "
+                    "triples: "
+                 << firstSandboxFile << " and " << file;
+        return std::nullopt;
+      }
+    }
   }
-  return std::nullopt;
+  return derivedMode;
 }
 
 ELFSyncStream elf::Log(Ctx &ctx) { return {ctx, DiagLevel::Log}; }
@@ -687,11 +701,6 @@ void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
     createFiles(args);
     if (errCount(ctx))
       return;
-
-    if (!args.hasArg(OPT_Sandbox_EQ))
-      if (std::optional<Config::SandboxModeEnum> mode =
-              getBitcodeTripleDerivedSandboxMode(ctx))
-        ctx.arg.SandboxMode = *mode;
 
     inferMachineType();
     setConfigs(ctx, args);
@@ -2997,6 +3006,13 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
 
   // Archive members defining __wrap symbols may be extracted.
   std::vector<WrappedSymbol> wrapped = addWrappedSymbols(ctx, args);
+
+  if (!args.hasArg(OPT_Sandbox_EQ))
+    if (std::optional<Config::SandboxModeEnum> mode =
+            getBitcodeTripleDerivedSandboxMode(ctx))
+      ctx.arg.SandboxMode = *mode;
+  if (errCount(ctx))
+    return;
 
   // No more lazy bitcode can be extracted at this point. Do post parse work
   // like checking duplicate symbols.
