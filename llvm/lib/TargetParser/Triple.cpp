@@ -360,6 +360,10 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
     return "muslf32";
   case MuslSF:
     return "muslsf";
+  case Triple::MuslSWCFI:
+    return "musl_swcfi";
+  case Triple::MuslHWCFI:
+    return "musl_hwcfi";
   case MuslX32: return "muslx32";
   case Simulator: return "simulator";
   case Pixel: return "pixel";
@@ -739,6 +743,8 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
       .StartsWith("musleabi", Triple::MuslEABI)
       .StartsWith("muslf32", Triple::MuslF32)
       .StartsWith("muslsf", Triple::MuslSF)
+      .StartsWith("musl_swcfi", Triple::MuslSWCFI)
+      .StartsWith("musl_hwcfi", Triple::MuslHWCFI)
       .StartsWith("muslx32", Triple::MuslX32)
       .StartsWith("musl", Triple::Musl)
       .StartsWith("msvc", Triple::MSVC)

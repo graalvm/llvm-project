@@ -51,6 +51,21 @@ static NativeTraceModeEnum getTraceNativeSandbox(Function &F) {
     return NativeTraceModeEnum::NONE;
 }
 
+static void removeModuleFlag(Module &M, StringRef Key) {
+    SmallVector<Module::ModuleFlagEntry, 8> Flags;
+    M.getModuleFlagsMetadata(Flags);
+    if (Flags.empty())
+        return;
+
+    NamedMDNode *ModFlags = M.getModuleFlagsMetadata();
+    ModFlags->clearOperands();
+    for (const Module::ModuleFlagEntry &Flag : Flags) {
+        if (Flag.Key->getString() == Key)
+            continue;
+        M.addModuleFlag(Flag.Behavior, Flag.Key->getString(), Flag.Val);
+    }
+}
+
 PreservedAnalyses NativeSandboxPass::run(Module &M,
         ModuleAnalysisManager &AM) {
 
@@ -63,7 +78,7 @@ PreservedAnalyses NativeSandboxPass::run(Module &M,
     // [rust] for cases where (some) functions go through GOT
     // this can end up generating rip relative addressing for indirect calls
     if (M.getRtLibUseGOT()) {
-        M.setModuleFlag(llvm::Module::ModFlagBehavior::Max, "RtLibUseGOT", static_cast<Metadata*>(0));
+        removeModuleFlag(M, "RtLibUseGOT");
     }
 
     if (!isIgnoredForPolling(M)) {
@@ -208,4 +223,3 @@ PreservedAnalyses NativeSandboxPass::run(Function &F,
     }
     return PreservedAnalyses::all();
 }
-

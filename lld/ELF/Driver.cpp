@@ -55,6 +55,7 @@
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/IRObjectFile.h"
 #include "llvm/Remarks/HotnessThresholdParser.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/SaveAndRestore.h"
 #include "llvm/Support/Compression.h"
@@ -81,6 +82,44 @@ using namespace lld::elf;
 
 static void setConfigs(Ctx &ctx, opt::InputArgList &args);
 static void readConfigs(Ctx &ctx, opt::InputArgList &args);
+
+static std::optional<Config::SandboxModeEnum>
+getTripleDerivedSandboxMode(const llvm::Triple &triple) {
+  if (triple.getArch() != llvm::Triple::x86_64 || !triple.isOSLinux())
+    return std::nullopt;
+
+  if (triple.getEnvironment() == llvm::Triple::MuslSWCFI)
+    return Config::SandboxModeEnum::SWCFI;
+  if (triple.getEnvironment() == llvm::Triple::MuslHWCFI)
+    return Config::SandboxModeEnum::HWCFI;
+  return std::nullopt;
+}
+
+static std::optional<Config::SandboxModeEnum>
+getBitcodeTripleDerivedSandboxMode(Ctx &ctx) {
+  BitcodeFile *firstSandboxFile = nullptr;
+  std::optional<Config::SandboxModeEnum> derivedMode;
+  for (BitcodeFile *file : ctx.bitcodeFiles) {
+    if (!file->obj)
+      continue;
+    if (std::optional<Config::SandboxModeEnum> mode =
+            getTripleDerivedSandboxMode(
+                llvm::Triple(file->obj->getTargetTriple()))) {
+      if (!derivedMode) {
+        derivedMode = mode;
+        firstSandboxFile = file;
+        continue;
+      }
+      if (*derivedMode != *mode) {
+        Err(ctx) << "incompatible sandbox modes derived from bitcode target "
+                    "triples: "
+                 << firstSandboxFile << " and " << file;
+        return std::nullopt;
+      }
+    }
+  }
+  return derivedMode;
+}
 
 ELFSyncStream elf::Log(Ctx &ctx) { return {ctx, DiagLevel::Log}; }
 ELFSyncStream elf::Msg(Ctx &ctx) { return {ctx, DiagLevel::Msg}; }
@@ -1262,14 +1301,15 @@ static void readConfigs(Ctx &ctx, opt::InputArgList &args) {
       ctx.arg.bsymbolic = BsymbolicKind::All;
   }
 
+  ctx.arg.SandboxMode = Config::SandboxModeEnum::OFF;
   for (const opt::Arg *A : args.filtered(OPT_Sandbox_EQ)) {
-     StringRef ModeName = A->getValue();
-     ctx.arg.SandboxMode = llvm::StringSwitch<Config::SandboxModeEnum>(ModeName)
-                                .Case("off", Config::SandboxModeEnum::OFF)
-                                .Case("swcfi", Config::SandboxModeEnum::SWCFI)
-                                .Case("hwcfi", Config::SandboxModeEnum::HWCFI)
-                                .Default(Config::SandboxModeEnum::OFF);
-     A->claim();
+    StringRef ModeName = A->getValue();
+    ctx.arg.SandboxMode = llvm::StringSwitch<Config::SandboxModeEnum>(ModeName)
+                              .Case("off", Config::SandboxModeEnum::OFF)
+                              .Case("swcfi", Config::SandboxModeEnum::SWCFI)
+                              .Case("hwcfi", Config::SandboxModeEnum::HWCFI)
+                              .Default(Config::SandboxModeEnum::OFF);
+    A->claim();
   }
 
   ctx.arg.callGraphProfileSort = getCGProfileSortKind(ctx, args);
@@ -2966,6 +3006,13 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
 
   // Archive members defining __wrap symbols may be extracted.
   std::vector<WrappedSymbol> wrapped = addWrappedSymbols(ctx, args);
+
+  if (!args.hasArg(OPT_Sandbox_EQ))
+    if (std::optional<Config::SandboxModeEnum> mode =
+            getBitcodeTripleDerivedSandboxMode(ctx))
+      ctx.arg.SandboxMode = *mode;
+  if (errCount(ctx))
+    return;
 
   // No more lazy bitcode can be extracted at this point. Do post parse work
   // like checking duplicate symbols.

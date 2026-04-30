@@ -268,6 +268,8 @@ public:
     MuslEABIHF,
     MuslF32,
     MuslSF,
+    MuslSWCFI,
+    MuslHWCFI,
     MuslX32,
     LLVM,
 
@@ -823,6 +825,8 @@ public:
            getEnvironment() == Triple::MuslEABIHF ||
            getEnvironment() == Triple::MuslF32 ||
            getEnvironment() == Triple::MuslSF ||
+           getEnvironment() == Triple::MuslSWCFI ||
+           getEnvironment() == Triple::MuslHWCFI ||
            getEnvironment() == Triple::MuslX32 ||
            getEnvironment() == Triple::OpenHOS || isOSLiteOS();
   }
