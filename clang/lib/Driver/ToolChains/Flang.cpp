@@ -768,8 +768,6 @@ void Flang::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back(Args.MakeArgString("-fcf-protection"));
       CmdArgs.push_back(Args.MakeArgString("-fno-jump-tables"));
       CmdArgs.push_back(Args.MakeArgString("-mllvm"));
-      CmdArgs.push_back(Args.MakeArgString("-x86-force-return-thunk"));
-      CmdArgs.push_back(Args.MakeArgString("-mllvm"));
       CmdArgs.push_back(Args.MakeArgString("-sandbox-cfi-mode=swcfi"));
       CmdArgs.push_back(Args.MakeArgString("-D__SANDBOX_CFI__"));
       CmdArgs.push_back(Args.MakeArgString("-D__SANDBOX_SWCFI__"));
