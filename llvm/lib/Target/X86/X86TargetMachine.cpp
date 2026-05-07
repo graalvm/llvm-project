@@ -38,6 +38,7 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Pass.h"
@@ -62,6 +63,19 @@ static cl::opt<bool>
     EnableTileRAPass("x86-tile-ra",
                      cl::desc("Enable the tile register allocation pass"),
                      cl::init(true), cl::Hidden);
+
+static bool isGraalOSSandboxedFunction(const Function &F) {
+  if (F.hasFnAttribute("sandboxed"))
+    return true;
+
+  const Module *M = F.getParent();
+  if (!M)
+    return false;
+
+  return M->getModuleFlag("SandboxModeSWCFI") ||
+         M->getModuleFlag("SandboxModeHWCFI") ||
+         M->getModuleFlag("GraalOSLinkerSandbox");
+}
 
 extern "C" LLVM_C_ABI void LLVMInitializeX86Target() {
   // Register the target.
@@ -345,6 +359,12 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
         MaybeAlign(F.getParent()->getOverrideStackAlignment()),
         PreferVectorWidthOverride, RequiredVectorWidth, Sandboxed);
   }
+  if (isGraalOSSandboxedFunction(F) &&
+      (I->useRetpolineIndirectCalls() ||
+       I->useRetpolineIndirectBranches() ||
+       I->useRetpolineExternalThunk()))
+    report_fatal_error(
+        "retpoline generation is incompatible with GraalOS sandboxing", false);
   return I.get();
 }
 

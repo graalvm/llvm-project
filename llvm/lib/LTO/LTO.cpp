@@ -163,6 +163,7 @@ std::string llvm::computeLTOCacheKey(
   AddString(Conf.AAPipeline);
   AddString(Conf.OverrideTriple);
   AddString(Conf.DefaultTriple);
+  AddString(Conf.GraalOSSandboxMode);
   AddString(Conf.DwoDir);
 
   // Include the hash for the current module
