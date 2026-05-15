@@ -117,6 +117,9 @@ struct Config {
   /// with this triple.
   std::string DefaultTriple;
 
+  /// GraalOS sandbox mode requested by the linker.
+  std::string GraalOSSandboxMode;
+
   /// Context Sensitive PGO profile path.
   std::string CSIRProfile;
 

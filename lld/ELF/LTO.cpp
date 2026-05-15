@@ -109,6 +109,16 @@ static lto::Config createConfig(Ctx &ctx) {
   c.CPU = getCPUStr();
   c.MAttrs = getMAttrs();
   c.CGOptLevel = ctx.arg.ltoCgo;
+  switch (ctx.arg.SandboxMode) {
+  case Config::SandboxModeEnum::SWCFI:
+    c.GraalOSSandboxMode = "swcfi";
+    break;
+  case Config::SandboxModeEnum::HWCFI:
+    c.GraalOSSandboxMode = "hwcfi";
+    break;
+  case Config::SandboxModeEnum::OFF:
+    break;
+  }
 
   c.PTO.LoopVectorization = c.OptLevel > 1;
   c.PTO.SLPVectorization = c.OptLevel > 1;

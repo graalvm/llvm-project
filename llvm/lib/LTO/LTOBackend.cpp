@@ -202,6 +202,10 @@ static void RegisterPassPlugins(ArrayRef<std::string> PassPlugins,
 
 static std::unique_ptr<TargetMachine>
 createTargetMachine(const Config &Conf, const Target *TheTarget, Module &M) {
+  if (!Conf.GraalOSSandboxMode.empty() &&
+      !M.getModuleFlag("GraalOSLinkerSandbox"))
+    M.addModuleFlag(Module::Error, "GraalOSLinkerSandbox", 1);
+
   StringRef TheTriple = M.getTargetTriple();
   SubtargetFeatures Features;
   Features.getDefaultSubtargetFeatures(Triple(TheTriple));
