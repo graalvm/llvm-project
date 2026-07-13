@@ -106,7 +106,7 @@ namespace {
             }
 #ifdef VERIFY_SANDBOX
             void getAnalysisUsage(AnalysisUsage &AU) const override {
-                AU.addRequired<ReachingDefAnalysis>();
+                AU.addRequired<ReachingDefInfoWrapperPass>();
                 MachineFunctionPass::getAnalysisUsage(AU);
             }
 #endif
@@ -235,7 +235,7 @@ bool X86SandboxPass::runOnMachineFunction(
     MachineBasicBlock *trapMBB = NULL;
 
 #ifdef VERIFY_SANDBOX
-    auto &RDA = getAnalysis<ReachingDefAnalysis>();
+    auto &RDI = getAnalysis<ReachingDefInfoWrapperPass>().getRDI();
 #endif
 
     X86TraceModeEnum TraceMode = getTraceX86Sandbox(MF);
@@ -275,7 +275,7 @@ bool X86SandboxPass::runOnMachineFunction(
 
 #ifdef VERIFY_SANDBOX
                     SmallPtrSet<MachineInstr *, 1> defMIs;
-                    RDA.getGlobalReachingDefs(&*MBBI, Base.getReg().asMCReg(), defMIs);
+                    RDI.getGlobalReachingDefs(&*MBBI, Base.getReg(), defMIs);
 
                     for (auto *defMI : defMIs) {
                         if (defMI->getOpcode() != X86::X86_sandboxcfi && !mayBeSpilledAddrReload(*defMI)) {
@@ -357,7 +357,7 @@ bool X86SandboxPass::runOnMachineFunction(
 INITIALIZE_PASS_BEGIN(X86SandboxPass, DEBUG_TYPE,
         "X86 Sandbox Instructions Emitter", false, false)
 #ifdef VERIFY_SANDBOX
-    INITIALIZE_PASS_DEPENDENCY(ReachingDefAnalysis);
+    INITIALIZE_PASS_DEPENDENCY(ReachingDefInfoWrapperPass);
 #endif
 INITIALIZE_PASS_END(X86SandboxPass, DEBUG_TYPE,
         "X86 Sandbox Instructions Emitter", false, false)

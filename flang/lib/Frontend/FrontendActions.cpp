@@ -965,6 +965,7 @@ checkCFProtectionSupported(llvm::Triple &TargetTriple, llvm::StringRef TargetCPU
 
 void CodeGenAction::runOptimizationPipeline(llvm::raw_pwrite_stream &os) {
   CompilerInstance &ci = getInstance();
+  clang::DiagnosticsEngine &diags = ci.getDiagnostics();
   const CodeGenOptions &opts = ci.getInvocation().getCodeGenOpts();
   llvm::OptimizationLevel level = mapToLevel(opts);
 
