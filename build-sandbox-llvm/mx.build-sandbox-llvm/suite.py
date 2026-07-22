@@ -9,7 +9,7 @@ suite = {
             {
                 "name" : "sdk",
                 "subdir" : True,
-                "version" : "afaec4b3b77c9e1445c8914d04474ab26e30cb03",
+                "version" : "25c88c022a33475a5269cf160553b6bfdebce5b9",
                 "urls" : [
                     {"url": "https://github.com/oracle/graal", "kind": "git"},
                 ]

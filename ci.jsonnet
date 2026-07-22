@@ -11,7 +11,7 @@ local mx = {
     packages+: {
         python3: "==3.8.10",
         "pip:ninja_syntax": "==1.7.2",
-        "mx": "==7.65.0",
+        "mx": "==7.84.1",
     },
     python_version: "3",
 };
