@@ -301,12 +301,16 @@ template <> struct traits_t<unsigned long long> {
 /* Check if the OS/arch can support user-level mwait */
 // All mwait code tests for UMWAIT first, so it should only fall back to ring3
 // MWAIT for KNL.
+#ifndef KMP_HAVE_MWAIT
 #define KMP_HAVE_MWAIT                                                         \
   ((KMP_ARCH_X86 || KMP_ARCH_X86_64) && (KMP_OS_LINUX || KMP_OS_WINDOWS) &&    \
    !KMP_MIC2)
+#endif
+#ifndef KMP_HAVE_UMWAIT
 #define KMP_HAVE_UMWAIT                                                        \
   ((KMP_ARCH_X86 || KMP_ARCH_X86_64) && (KMP_OS_LINUX || KMP_OS_WINDOWS) &&    \
    !KMP_MIC)
+#endif
 
 #if KMP_OS_WINDOWS
 // Don't include everything related to NT status code, we'll do that explicitly
@@ -1223,7 +1227,9 @@ typedef void (*microtask_t)(int *gtid, int *npr, ...);
 // dynamic user lock is turned on
 #if KMP_USE_DYNAMIC_LOCK
 // Visual studio can't handle the asm sections in this code
+#ifndef KMP_USE_TSX
 #define KMP_USE_TSX (KMP_ARCH_X86 || KMP_ARCH_X86_64) && !KMP_COMPILER_MSVC
+#endif
 #ifdef KMP_USE_ADAPTIVE_LOCKS
 #undef KMP_USE_ADAPTIVE_LOCKS
 #endif

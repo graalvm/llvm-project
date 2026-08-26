@@ -1259,6 +1259,15 @@ KMP_LABEL(kmp_1_exit):
 #endif // KMP_MIC
 
 KMP_LABEL(kmp_no_args):
+#ifdef __SANDBOX_SWCFI__
+	movl	(%rbx), %r11d
+	addl	$0x5e1f00d, %r11d
+	je	KMP_LABEL(kmp_invoke_cfi_success)
+	int3
+KMP_LABEL(kmp_invoke_cfi_success):
+#elif defined(__SANDBOX_HWCFI__)
+	testq	%rbx, (%rbx)
+#endif
 	call	*%rbx		// call (*pkfn)();
 	movq	$1, %rax	// move 1 into return register;
 
