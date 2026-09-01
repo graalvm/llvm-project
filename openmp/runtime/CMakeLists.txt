@@ -458,8 +458,10 @@ if(${OPENMP_STANDALONE_BUILD})
 endif()
 
 add_subdirectory(src)
-add_subdirectory(test)
-add_subdirectory(unittests)
+if(LLVM_INCLUDE_TESTS)
+  add_subdirectory(test)
+  add_subdirectory(unittests)
+endif()
 
 # make these variables available for tools:
 set(LIBOMP_LIBRARY_DIR ${LIBOMP_LIBRARY_DIR} PARENT_SCOPE)

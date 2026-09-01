@@ -145,9 +145,9 @@ DEFINE_LIBUNWIND_FUNCTION(__libunwind_Registers_x86_64_jumpto)
   push   %rax
   mov    (%rcx), %eax
   add    $0x05E1F00D, %eax
-  jz     __pass_sw_cfi
+  jz     1f  # __pass_sw_cfi
   int    $3
-__pass_sw_cfi:
+1:
   pop    %rax
 #endif
   jmp    *%rcx
