@@ -1060,6 +1060,22 @@ void CodeGenAction::runOptimizationPipeline(llvm::raw_pwrite_stream &os) {
   else
     mpm = pb.buildPerModuleDefaultPipeline(level);
 
+  if (opts.SandboxMode) {
+    if (opts.SandboxMode == clang::CodeGenOptions::SandboxModeEnum::SWCFI) {
+      if (!llvmModule->getModuleFlag("SandboxModeSWCFI"))
+        llvmModule->addModuleFlag(llvm::Module::Error, "SandboxModeSWCFI",
+                                  true);
+    } else if (opts.SandboxMode ==
+               clang::CodeGenOptions::SandboxModeEnum::HWCFI) {
+      if (!llvmModule->getModuleFlag("SandboxModeHWCFI"))
+        llvmModule->addModuleFlag(llvm::Module::Error, "SandboxModeHWCFI",
+                                  true);
+    }
+
+    mpm.addPass(llvm::NativeSandboxPass());
+    mpm.addPass(createModuleToFunctionPassAdaptor(llvm::NativeSandboxPass()));
+  }
+
   if (action == BackendActionTy::Backend_EmitBC ||
       action == BackendActionTy::Backend_EmitLL || opts.PrepareForFatLTO) {
     if (opts.PrepareForThinLTO) {
@@ -1079,19 +1095,6 @@ void CodeGenAction::runOptimizationPipeline(llvm::raw_pwrite_stream &os) {
                                           /*ShouldPreserveUseListOrder=*/false,
                                           emitSummary));
     }
-  }
-
-  if (opts.SandboxMode) {
-    if (!llvmModule->getModuleFlag("SandboxModeSWCFI"))
-        llvmModule->addModuleFlag(llvm::Module::Error, "SandboxModeSWCFI",
-                                 opts.SandboxMode ==  clang::CodeGenOptions::SandboxModeEnum::SWCFI);
-    if (!llvmModule->getModuleFlag("SandboxModeHWCFI"))
-        llvmModule->addModuleFlag(llvm::Module::Error, "SandboxModeHWCFI",
-                                 opts.SandboxMode ==  clang::CodeGenOptions::SandboxModeEnum::HWCFI);
-
-      
-    mpm.addPass(llvm::NativeSandboxPass());
-    mpm.addPass(createModuleToFunctionPassAdaptor(llvm::NativeSandboxPass()));
   }
 
   if (opts.CFProtectionReturn &&
